@@ -1,0 +1,211 @@
+# omnigraph v0.15.0
+# run 2026-11-11 09:43 UTC
+
+
+## 1. Schema and load
+
+node Person {
+  slug: String @key
+  name: String
+  age: I32
+}
+
+node Company {
+  slug: String @key
+  name: String
+}
+
+node Project {
+  slug: String @key
+  name: String
+}
+
+edge WorksAt: Person -> Company
+edge ContributesTo: Person -> Project
+
+$ ~/.local/bin/omnigraph init --schema $CODE/compare/omnigraph/schema.pg $WORK/graph.omni
+initialized $WORK/graph.omni
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=main
+[exit 0]
+
+$ ~/.local/bin/omnigraph load --data $WORK/data.jsonl --mode overwrite --target $WORK/graph.omni
+loaded $WORK/graph.omni on branch main with overwrite: 45 entities across 3 node types and 2 edge types
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=main
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+query company_projects($company: String) {
+  match {
+    $c: Company { slug: $company }
+    $p: Person
+    $j: Project
+    $p worksAt $c
+    $p contributesTo $j
+  }
+  return distinct { $j.name as project }
+  order { project asc }
+}
+
+query people_count() {
+  match {
+    $p: Person
+  }
+  return { count($p) as people }
+}
+
+$ ~/.local/bin/omnigraph query company_projects --query $CODE/compare/omnigraph/queries.gq --params '{"company":"acme"}' --format table --target $WORK/graph.omni
+3 rows from branch main via company_projects
+project
+-------
+Atlas  
+Beacon 
+Comet  
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+$ ~/.local/bin/omnigraph query company_projects --query $CODE/compare/omnigraph/queries.gq --params '{"company":"acme"}' --json --target $WORK/graph.omni
+{
+  "query_name": "company_projects",
+  "target": {
+    "branch": "main",
+    "snapshot": null
+  },
+  "row_count": 3,
+  "columns": [
+    "project"
+  ],
+  "rows": [{"project":"Atlas"},{"project":"Beacon"},{"project":"Comet"}],
+  "graph_commit_id": "hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V"
+}
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# age is a string: {"type": "Person", "data": {"slug": "mo", "name": "Mo", "age": "forty"}}
+$ ~/.local/bin/omnigraph load --data $WORK/wrong_type.jsonl --mode append --target $WORK/graph.omni
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=main
+strict property 'age' expects Int32, got "forty"
+disposition: {"effects":"none","action":"fix"}
+[exit 1]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema: {"type": "Person", "data": {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}}
+$ ~/.local/bin/omnigraph load --data $WORK/undeclared_property.jsonl --mode append --target $WORK/graph.omni
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=main
+unknown input field 'nickname' for 'node:Person'
+disposition: {"effects":"none","action":"fix"}
+[exit 1]
+
+=> rejects_undeclared_property: rejected
+$ ~/.local/bin/omnigraph query people_count --query $CODE/compare/omnigraph/queries.gq --json --target $WORK/graph.omni
+{
+  "query_name": "people_count",
+  "target": {
+    "branch": "main",
+    "snapshot": null
+  },
+  "row_count": 1,
+  "columns": [
+    "people"
+  ],
+  "rows": [{"people":12}],
+  "graph_commit_id": "hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V"
+}
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+=> people_after_probes: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+$ ~/.local/bin/omnigraph branch create review/add-omar --target $WORK/graph.omni
+created branch review/add-omar from main at hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=review/add-omar
+[exit 0]
+
+$ ~/.local/bin/omnigraph load --data $WORK/branch.jsonl --mode append --branch review/add-omar --target $WORK/graph.omni
+loaded $WORK/graph.omni on branch review/add-omar with append: 1 entities across 1 node types and 0 edge types
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=review/add-omar
+[exit 0]
+
+$ ~/.local/bin/omnigraph query people_count --query $CODE/compare/omnigraph/queries.gq --json --branch review/add-omar --target $WORK/graph.omni
+{
+  "query_name": "people_count",
+  "target": {
+    "branch": "review/add-omar",
+    "snapshot": null
+  },
+  "row_count": 1,
+  "columns": [
+    "people"
+  ],
+  "rows": [{"people":13}],
+  "graph_commit_id": "hb1.01M74ZV2GC9Z3N845J1J0TCSBZ.2.01M74ZV2GC9Z3N845J1J0TCSBZ"
+}
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+$ ~/.local/bin/omnigraph query people_count --query $CODE/compare/omnigraph/queries.gq --json --target $WORK/graph.omni
+{
+  "query_name": "people_count",
+  "target": {
+    "branch": "main",
+    "snapshot": null
+  },
+  "row_count": 1,
+  "columns": [
+    "people"
+  ],
+  "rows": [{"people":12}],
+  "graph_commit_id": "hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V"
+}
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+$ ~/.local/bin/omnigraph branch merge review/add-omar --into main --target $WORK/graph.omni
+merged review/add-omar into main: fast_forward
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local; branch=main
+[exit 0]
+
+$ ~/.local/bin/omnigraph query people_count --query $CODE/compare/omnigraph/queries.gq --json --target $WORK/graph.omni
+{
+  "query_name": "people_count",
+  "target": {
+    "branch": "main",
+    "snapshot": null
+  },
+  "row_count": 1,
+  "columns": [
+    "people"
+  ],
+  "rows": [{"people":13}],
+  "graph_commit_id": "hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.2.01M74ZV2HV9TVHM0WWWH4835AT"
+}
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+=> branch_isolation: pass (branch 13, main 12 before merge)
+=> merge: pass (main 13 after merge)
+$ ~/.local/bin/omnigraph query people_count --query $CODE/compare/omnigraph/queries.gq --json --snapshot hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V --target $WORK/graph.omni
+{
+  "query_name": "people_count",
+  "target": {
+    "branch": null,
+    "snapshot": "hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V"
+  },
+  "row_count": 1,
+  "columns": [
+    "people"
+  ],
+  "rows": [{"people":12}],
+  "graph_commit_id": "hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V"
+}
+target $WORK/graph.omni (inline): direct graph $WORK/graph.omni; $WORK/graph.omni; provider=Local
+[exit 0]
+
+=> historical_read: pass (12 people at commit hb1.01M74ZV2A8CM8VHAK5HR5FEJ0V.1.01M74ZV2A8CM8VHAK5HR5FEJ0V, read after the merge)

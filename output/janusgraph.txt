@@ -1,0 +1,269 @@
+# janusgraph 1.2.0 (docker image janusgraph/janusgraph:1.2.0, BerkeleyDB JE + Lucene)
+# run 2026-11-11 09:40 UTC
+
+
+## 1. Schema and load
+
+# Default setup: the image's stock graph config (schema.default=default, schema.constraints=false).
+$ docker run -d --name cmp-janusgraph -e gremlinserver.channelizer=org.apache.tinkerpop.gremlin.server.channel.WsAndHttpChannelizer janusgraph/janusgraph:1.2.0
+dff9878fa59fd599aa2dbb5bda9bac2a9c694ec9df68ce59bab5fed3bde5539e
+[exit 0]
+
+org.janusgraph.graphdb.configuration.JanusGraphConstants.VERSION
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"1574ff0c-1479-43b8-8a81-ceffb2185036","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["1.2.0"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+mgmt = graph.openManagement(); s = [mgmt.get('schema.default'), mgmt.get('schema.constraints')].toString(); mgmt.rollback(); 'schema.default, schema.constraints = ' + s
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"9a742dcf-21a0-4ada-b6b4-b0ae4f2e2501","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["schema.default, schema.constraints = [default, false]"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+// Explicit schema through the JanusGraph management API, then one commit.
+mgmt = graph.openManagement()
+person = mgmt.makeVertexLabel('Person').make()
+company = mgmt.makeVertexLabel('Company').make()
+project = mgmt.makeVertexLabel('Project').make()
+slug = mgmt.makePropertyKey('slug').dataType(String.class).cardinality(Cardinality.SINGLE).make()
+name = mgmt.makePropertyKey('name').dataType(String.class).cardinality(Cardinality.SINGLE).make()
+age = mgmt.makePropertyKey('age').dataType(Integer.class).cardinality(Cardinality.SINGLE).make()
+mgmt.addProperties(person, slug, name, age)
+mgmt.addProperties(company, slug, name)
+mgmt.addProperties(project, slug, name)
+worksAt = mgmt.makeEdgeLabel('WorksAt').multiplicity(Multiplicity.MULTI).make()
+contributesTo = mgmt.makeEdgeLabel('ContributesTo').multiplicity(Multiplicity.MULTI).make()
+mgmt.addConnection(worksAt, person, company)
+mgmt.addConnection(contributesTo, person, project)
+mgmt.buildIndex('bySlug', Vertex.class).addKey(slug).unique().buildCompositeIndex()
+mgmt.commit()
+mgmt = graph.openManagement()
+schema = mgmt.printSchema()
+mgmt.rollback()
+schema
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"35ea19ab-1da4-406e-a58d-0ed6a1b6a6ab","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["------------------------------------------------------------------------------------------------\nVertex Label Name              | Partitioned | Static                                             |\n---------------------------------------------------------------------------------------------------\nPerson                         | false       | false                                              |\nCompany                        | false       | false                                              |\nProject                        | false       | false                                              |\n---------------------------------------------------------------------------------------------------\nEdge Label Name                | Directed    | Unidirected | Multiplicity                         |\n---------------------------------------------------------------------------------------------------\nWorksAt                        | true        | false       | MULTI                                |\nContributesTo                  | true        | false       | MULTI                                |\n---------------------------------------------------------------------------------------------------\nProperty Key Name              | Cardinality | Data Type                                          |\n---------------------------------------------------------------------------------------------------\nslug                           | SINGLE      | class java.lang.String                             |\nname                           | SINGLE      | class java.lang.String                             |\nage                            | SINGLE      | class java.lang.Integer                            |\n---------------------------------------------------------------------------------------------------\nGraph Index (Vertex)           | Type        | Unique    | Backing        | Key:           Status |\n---------------------------------------------------------------------------------------------------\nbySlug                         | Composite   | true      | internalindex  | slug:         ENABLED |\n---------------------------------------------------------------------------------------------------\nGraph Index (Edge)             | Type        | Unique    | Backing        | Key:           Status |\n---------------------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------------------\nRelation Index (VCI)           | Type        | Direction | Sort Key       | Order    |     Status |\n---------------------------------------------------------------------------------------------------\n"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+g.addV('Person').property('slug', "ada").property('name', "Ada").property('age', 36).iterate()
+g.addV('Person').property('slug', "bram").property('name', "Bram").property('age', 29).iterate()
+g.addV('Person').property('slug', "chen").property('name', "Chen").property('age', 41).iterate()
+g.addV('Person').property('slug', "dara").property('name', "Dara").property('age', 33).iterate()
+g.addV('Person').property('slug', "eli").property('name', "Eli").property('age', 27).iterate()
+g.addV('Person').property('slug', "fatima").property('name', "Fatima").property('age', 38).iterate()
+g.addV('Person').property('slug', "goran").property('name', "Goran").property('age', 45).iterate()
+g.addV('Person').property('slug', "hana").property('name', "Hana").property('age', 31).iterate()
+g.addV('Person').property('slug', "ivo").property('name', "Ivo").property('age', 24).iterate()
+g.addV('Person').property('slug', "jun").property('name', "Jun").property('age', 39).iterate()
+g.addV('Person').property('slug', "kira").property('name', "Kira").property('age', 30).iterate()
+g.addV('Person').property('slug', "luis").property('name', "Luis").property('age', 35).iterate()
+g.addV('Company').property('slug', "acme").property('name', "Acme").iterate()
+g.addV('Company').property('slug', "globex").property('name', "Globex").iterate()
+g.addV('Company').property('slug', "initech").property('name', "Initech").iterate()
+g.addV('Project').property('slug', "atlas").property('name', "Atlas").iterate()
+g.addV('Project').property('slug', "beacon").property('name', "Beacon").iterate()
+g.addV('Project').property('slug', "comet").property('name', "Comet").iterate()
+g.addV('Project').property('slug', "delta").property('name', "Delta").iterate()
+g.addV('Project').property('slug', "ember").property('name', "Ember").iterate()
+g.V().has('Person', 'slug', "ada").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "bram").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "chen").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "dara").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "eli").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "fatima").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "goran").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "hana").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "ivo").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "jun").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "kira").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "luis").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "ada").as('a').V().has('Project', 'slug', "atlas").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "ada").as('a').V().has('Project', 'slug', "beacon").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "bram").as('a').V().has('Project', 'slug', "atlas").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "chen").as('a').V().has('Project', 'slug', "comet").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "dara").as('a').V().has('Project', 'slug', "beacon").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "eli").as('a').V().has('Project', 'slug', "delta").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "fatima").as('a').V().has('Project', 'slug', "delta").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "goran").as('a').V().has('Project', 'slug', "ember").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "hana").as('a').V().has('Project', 'slug', "comet").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "ivo").as('a').V().has('Project', 'slug', "ember").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "jun").as('a').V().has('Project', 'slug', "delta").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "kira").as('a').V().has('Project', 'slug', "atlas").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "luis").as('a').V().has('Project', 'slug', "ember").addE('ContributesTo').from('a').iterate()
+'loaded'
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"39e4a73b-627c-421c-bf58-b67839107e6d","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["loaded"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+g.V().groupCount().by(label).next().toString()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"b7e972ab-71ed-4ceb-87db-ba94d17c72d4","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["[Project:5, Company:3, Person:12]"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+g.E().groupCount().by(label).next().toString()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"28e2c681-ea99-4040-a5cb-6bb5b9519440","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["[WorksAt:12, ContributesTo:13]"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+# bindings: {"company": "acme"}
+g.V().has('Company', 'slug', company).in('WorksAt').out('ContributesTo').values('name').dedup().order()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"c0ee3a9a-16b7-4c08-b503-89c39c1985f1","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["Atlas","Beacon","Comet"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Default setup: explicit schema from step 1, stock config (undeclared keys are created on first use).
+# age is a string
+g.addV('Person').property('slug', "mo").property('name', "Mo").property('age', "forty").iterate(); 'written'
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"message":"Value [forty] is not an instance of the expected data type for property key [age] and cannot be converted. Expected: class java.lang.Integer, found: class java.lang.String","Exception-Class":"org.janusgraph.core.SchemaViolationException","exceptions":["org.janusgraph.core.SchemaViolationException"],"stackTrace":"org.janusgraph.core.SchemaViolationException: Value [forty] is not an instance of the expected data type for property key [age] and cannot be converted. Expected: class java.lang.Integer, found: class java.lang.String\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.verifyAttribute(StandardJanusGraphTx.java:752)\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.addProperty(StandardJanusGraphTx.java:982)\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.addProperty(StandardJanusGraphTx.java:971)\n\tat org.janusgraph.graphdb.vertices.AbstractVertex.property(AbstractVertex.java:172)\n\tat org.janusgraph.graphdb.vertices.AbstractVertex.property(AbstractVertex.java:152)\n\tat org.janusgraph.core.JanusGraphVertex.property(JanusGraphVertex.java:72)\n\tat org.janusgraph.graphdb.util.ElementHelper.attachProperties(ElementHelper.java:87)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsTransaction.addVertex(JanusGraphBlueprintsTransaction.java:152)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.addVertex(JanusGraphBlueprintsGraph.java:150)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.addVertex(JanusGraphBlueprintsGraph.java:60)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.map.AddVertexStartStep.processNextStart(AddVertexStartStep.java:124)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.hasNext(AbstractStep.java:155)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.ExpandableStepIterator.next(ExpandableStepIterator.java:55)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.filter.FilterStep.processNextStart(FilterStep.java:37)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.next(AbstractStep.java:140)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.next(AbstractStep.java:40)\n\tat org.apache.tinkerpop.gremlin.process.traversal.Traversal.iterate(Traversal.java:210)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal.iterate(GraphTraversal.java:4678)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal$Admin.iterate(GraphTraversal.java:265)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal.iterate(DefaultGraphTraversal.java:48)\n\tat org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)\n\tat Script11.run(Script11.groovy:1)\n\tat org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine.eval(GremlinGroovyScriptEngine.java:679)\n\tat org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine.eval(GremlinGroovyScriptEngine.java:381)\n\tat java.scripting/javax.script.AbstractScriptEngine.eval(Unknown Source)\n\tat org.apache.tinkerpop.gremlin.groovy.engine.GremlinExecutor.lambda$eval$0(GremlinExecutor.java:314)\n\tat java.base/java.util.concurrent.FutureTask.run(Unknown Source)\n\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Unknown Source)\n\tat java.base/java.util.concurrent.FutureTask.run(Unknown Source)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)\n\tat java.base/java.lang.Thread.run(Unknown Source)\n","requestId":"23139a88-1b1e-4b2a-b777-d5de0bf66174"}
+[exit 22]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema
+g.addV('Person').property('slug', "nia").property('name', "Nia").property('age', 28).property('nickname', "N").iterate(); 'written'
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"de23eb4d-9243-4bbb-8135-3fd34bb1597a","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["written"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+g.V().hasLabel('Person').count()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"661e9f01-2e22-4295-8157-ab0ffd91a4c5","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":[{"@type":"g:Int64","@value":13}]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+=> people_after_probes: 13 (12 means neither probe wrote)
+
+# Stricter mode: a fresh container with schema.default=none and schema.constraints=true,
+# the same schema and data from step 1, then the same probes.
+$ docker run -d --name cmp-janusgraph -e gremlinserver.channelizer=org.apache.tinkerpop.gremlin.server.channel.WsAndHttpChannelizer -e janusgraph.schema.default=none -e janusgraph.schema.constraints=true janusgraph/janusgraph:1.2.0
+fa034b452d37a16fadc291e7ce695a1b84b7dff33ad56ed48e69b68fd580657c
+[exit 0]
+
+org.janusgraph.graphdb.configuration.JanusGraphConstants.VERSION
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"91c0246c-9e7e-461f-9040-3edec116cd78","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["1.2.0"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+mgmt = graph.openManagement(); s = [mgmt.get('schema.default'), mgmt.get('schema.constraints')].toString(); mgmt.rollback(); 'schema.default, schema.constraints = ' + s
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"085051f8-55ed-4275-a44c-797f762fa201","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["schema.default, schema.constraints = [none, true]"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+// Explicit schema through the JanusGraph management API, then one commit.
+mgmt = graph.openManagement()
+person = mgmt.makeVertexLabel('Person').make()
+company = mgmt.makeVertexLabel('Company').make()
+project = mgmt.makeVertexLabel('Project').make()
+slug = mgmt.makePropertyKey('slug').dataType(String.class).cardinality(Cardinality.SINGLE).make()
+name = mgmt.makePropertyKey('name').dataType(String.class).cardinality(Cardinality.SINGLE).make()
+age = mgmt.makePropertyKey('age').dataType(Integer.class).cardinality(Cardinality.SINGLE).make()
+mgmt.addProperties(person, slug, name, age)
+mgmt.addProperties(company, slug, name)
+mgmt.addProperties(project, slug, name)
+worksAt = mgmt.makeEdgeLabel('WorksAt').multiplicity(Multiplicity.MULTI).make()
+contributesTo = mgmt.makeEdgeLabel('ContributesTo').multiplicity(Multiplicity.MULTI).make()
+mgmt.addConnection(worksAt, person, company)
+mgmt.addConnection(contributesTo, person, project)
+mgmt.buildIndex('bySlug', Vertex.class).addKey(slug).unique().buildCompositeIndex()
+mgmt.commit()
+mgmt = graph.openManagement()
+schema = mgmt.printSchema()
+mgmt.rollback()
+schema
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"58ace1f1-9d41-4b6e-ab90-5bc24f9a80fc","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["------------------------------------------------------------------------------------------------\nVertex Label Name              | Partitioned | Static                                             |\n---------------------------------------------------------------------------------------------------\nPerson                         | false       | false                                              |\nCompany                        | false       | false                                              |\nProject                        | false       | false                                              |\n---------------------------------------------------------------------------------------------------\nEdge Label Name                | Directed    | Unidirected | Multiplicity                         |\n---------------------------------------------------------------------------------------------------\nWorksAt                        | true        | false       | MULTI                                |\nContributesTo                  | true        | false       | MULTI                                |\n---------------------------------------------------------------------------------------------------\nProperty Key Name              | Cardinality | Data Type                                          |\n---------------------------------------------------------------------------------------------------\nslug                           | SINGLE      | class java.lang.String                             |\nname                           | SINGLE      | class java.lang.String                             |\nage                            | SINGLE      | class java.lang.Integer                            |\n---------------------------------------------------------------------------------------------------\nGraph Index (Vertex)           | Type        | Unique    | Backing        | Key:           Status |\n---------------------------------------------------------------------------------------------------\nbySlug                         | Composite   | true      | internalindex  | slug:         ENABLED |\n---------------------------------------------------------------------------------------------------\nGraph Index (Edge)             | Type        | Unique    | Backing        | Key:           Status |\n---------------------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------------------\nRelation Index (VCI)           | Type        | Direction | Sort Key       | Order    |     Status |\n---------------------------------------------------------------------------------------------------\n"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+g.addV('Person').property('slug', "ada").property('name', "Ada").property('age', 36).iterate()
+g.addV('Person').property('slug', "bram").property('name', "Bram").property('age', 29).iterate()
+g.addV('Person').property('slug', "chen").property('name', "Chen").property('age', 41).iterate()
+g.addV('Person').property('slug', "dara").property('name', "Dara").property('age', 33).iterate()
+g.addV('Person').property('slug', "eli").property('name', "Eli").property('age', 27).iterate()
+g.addV('Person').property('slug', "fatima").property('name', "Fatima").property('age', 38).iterate()
+g.addV('Person').property('slug', "goran").property('name', "Goran").property('age', 45).iterate()
+g.addV('Person').property('slug', "hana").property('name', "Hana").property('age', 31).iterate()
+g.addV('Person').property('slug', "ivo").property('name', "Ivo").property('age', 24).iterate()
+g.addV('Person').property('slug', "jun").property('name', "Jun").property('age', 39).iterate()
+g.addV('Person').property('slug', "kira").property('name', "Kira").property('age', 30).iterate()
+g.addV('Person').property('slug', "luis").property('name', "Luis").property('age', 35).iterate()
+g.addV('Company').property('slug', "acme").property('name', "Acme").iterate()
+g.addV('Company').property('slug', "globex").property('name', "Globex").iterate()
+g.addV('Company').property('slug', "initech").property('name', "Initech").iterate()
+g.addV('Project').property('slug', "atlas").property('name', "Atlas").iterate()
+g.addV('Project').property('slug', "beacon").property('name', "Beacon").iterate()
+g.addV('Project').property('slug', "comet").property('name', "Comet").iterate()
+g.addV('Project').property('slug', "delta").property('name', "Delta").iterate()
+g.addV('Project').property('slug', "ember").property('name', "Ember").iterate()
+g.V().has('Person', 'slug', "ada").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "bram").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "chen").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "dara").as('a').V().has('Company', 'slug', "acme").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "eli").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "fatima").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "goran").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "hana").as('a').V().has('Company', 'slug', "globex").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "ivo").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "jun").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "kira").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "luis").as('a').V().has('Company', 'slug', "initech").addE('WorksAt').from('a').iterate()
+g.V().has('Person', 'slug', "ada").as('a').V().has('Project', 'slug', "atlas").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "ada").as('a').V().has('Project', 'slug', "beacon").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "bram").as('a').V().has('Project', 'slug', "atlas").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "chen").as('a').V().has('Project', 'slug', "comet").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "dara").as('a').V().has('Project', 'slug', "beacon").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "eli").as('a').V().has('Project', 'slug', "delta").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "fatima").as('a').V().has('Project', 'slug', "delta").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "goran").as('a').V().has('Project', 'slug', "ember").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "hana").as('a').V().has('Project', 'slug', "comet").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "ivo").as('a').V().has('Project', 'slug', "ember").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "jun").as('a').V().has('Project', 'slug', "delta").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "kira").as('a').V().has('Project', 'slug', "atlas").addE('ContributesTo').from('a').iterate()
+g.V().has('Person', 'slug', "luis").as('a').V().has('Project', 'slug', "ember").addE('ContributesTo').from('a').iterate()
+'loaded'
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"6372ef72-4ca0-4bce-874a-cdecd44458fe","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["loaded"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+g.V().groupCount().by(label).next().toString()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"2c03eac6-47cd-41fc-93ab-4c61bb9ba468","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["[Project:5, Company:3, Person:12]"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+g.E().groupCount().by(label).next().toString()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"57970201-2d4c-4cf5-b546-eb61b9f6f0ba","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":["[WorksAt:12, ContributesTo:13]"]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+# age is a string
+g.addV('Person').property('slug', "mo").property('name', "Mo").property('age', "forty").iterate(); 'written'
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"message":"Value [forty] is not an instance of the expected data type for property key [age] and cannot be converted. Expected: class java.lang.Integer, found: class java.lang.String","Exception-Class":"org.janusgraph.core.SchemaViolationException","exceptions":["org.janusgraph.core.SchemaViolationException"],"stackTrace":"org.janusgraph.core.SchemaViolationException: Value [forty] is not an instance of the expected data type for property key [age] and cannot be converted. Expected: class java.lang.Integer, found: class java.lang.String\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.verifyAttribute(StandardJanusGraphTx.java:752)\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.addProperty(StandardJanusGraphTx.java:982)\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.addProperty(StandardJanusGraphTx.java:971)\n\tat org.janusgraph.graphdb.vertices.AbstractVertex.property(AbstractVertex.java:172)\n\tat org.janusgraph.graphdb.vertices.AbstractVertex.property(AbstractVertex.java:152)\n\tat org.janusgraph.core.JanusGraphVertex.property(JanusGraphVertex.java:72)\n\tat org.janusgraph.graphdb.util.ElementHelper.attachProperties(ElementHelper.java:87)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsTransaction.addVertex(JanusGraphBlueprintsTransaction.java:152)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.addVertex(JanusGraphBlueprintsGraph.java:150)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.addVertex(JanusGraphBlueprintsGraph.java:60)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.map.AddVertexStartStep.processNextStart(AddVertexStartStep.java:124)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.hasNext(AbstractStep.java:155)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.ExpandableStepIterator.next(ExpandableStepIterator.java:55)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.filter.FilterStep.processNextStart(FilterStep.java:37)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.next(AbstractStep.java:140)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.next(AbstractStep.java:40)\n\tat org.apache.tinkerpop.gremlin.process.traversal.Traversal.iterate(Traversal.java:210)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal.iterate(GraphTraversal.java:4678)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal$Admin.iterate(GraphTraversal.java:265)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal.iterate(DefaultGraphTraversal.java:48)\n\tat org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)\n\tat Script10.run(Script10.groovy:1)\n\tat org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine.eval(GremlinGroovyScriptEngine.java:679)\n\tat org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine.eval(GremlinGroovyScriptEngine.java:381)\n\tat java.scripting/javax.script.AbstractScriptEngine.eval(Unknown Source)\n\tat org.apache.tinkerpop.gremlin.groovy.engine.GremlinExecutor.lambda$eval$0(GremlinExecutor.java:314)\n\tat java.base/java.util.concurrent.FutureTask.run(Unknown Source)\n\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Unknown Source)\n\tat java.base/java.util.concurrent.FutureTask.run(Unknown Source)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)\n\tat java.base/java.lang.Thread.run(Unknown Source)\n","requestId":"4e22d061-e83c-460e-8103-ed51d5eafd2b"}
+[exit 22]
+
+=> rejects_wrong_type_strict: rejected
+# nickname isn't in the schema
+g.addV('Person').property('slug', "nia").property('name', "Nia").property('age', 28).property('nickname', "N").iterate(); 'written'
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"message":"Property Key with given name does not exist: nickname","Exception-Class":"java.lang.IllegalArgumentException","exceptions":["java.lang.IllegalArgumentException"],"stackTrace":"java.lang.IllegalArgumentException: Property Key with given name does not exist: nickname\n\tat org.janusgraph.core.schema.DisableDefaultSchemaMaker.makePropertyKey(DisableDefaultSchemaMaker.java:42)\n\tat org.janusgraph.core.schema.DefaultSchemaMaker.makePropertyKey(DefaultSchemaMaker.java:82)\n\tat org.janusgraph.graphdb.transaction.StandardJanusGraphTx.getOrCreatePropertyKey(StandardJanusGraphTx.java:1285)\n\tat org.janusgraph.graphdb.vertices.AbstractVertex.property(AbstractVertex.java:157)\n\tat org.janusgraph.graphdb.vertices.AbstractVertex.property(AbstractVertex.java:152)\n\tat org.janusgraph.core.JanusGraphVertex.property(JanusGraphVertex.java:72)\n\tat org.janusgraph.graphdb.util.ElementHelper.attachProperties(ElementHelper.java:87)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsTransaction.addVertex(JanusGraphBlueprintsTransaction.java:152)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.addVertex(JanusGraphBlueprintsGraph.java:150)\n\tat org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.addVertex(JanusGraphBlueprintsGraph.java:60)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.map.AddVertexStartStep.processNextStart(AddVertexStartStep.java:124)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.hasNext(AbstractStep.java:155)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.ExpandableStepIterator.next(ExpandableStepIterator.java:55)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.filter.FilterStep.processNextStart(FilterStep.java:37)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.next(AbstractStep.java:140)\n\tat org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep.next(AbstractStep.java:40)\n\tat org.apache.tinkerpop.gremlin.process.traversal.Traversal.iterate(Traversal.java:210)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal.iterate(GraphTraversal.java:4678)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal$Admin.iterate(GraphTraversal.java:265)\n\tat org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal.iterate(DefaultGraphTraversal.java:48)\n\tat org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)\n\tat Script11.run(Script11.groovy:1)\n\tat org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine.eval(GremlinGroovyScriptEngine.java:679)\n\tat org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine.eval(GremlinGroovyScriptEngine.java:381)\n\tat java.scripting/javax.script.AbstractScriptEngine.eval(Unknown Source)\n\tat org.apache.tinkerpop.gremlin.groovy.engine.GremlinExecutor.lambda$eval$0(GremlinExecutor.java:314)\n\tat java.base/java.util.concurrent.FutureTask.run(Unknown Source)\n\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Unknown Source)\n\tat java.base/java.util.concurrent.FutureTask.run(Unknown Source)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)\n\tat java.base/java.lang.Thread.run(Unknown Source)\n","requestId":"4161a468-0cf1-4399-b267-999ef6c8dc8a"}
+[exit 22]
+
+=> rejects_undeclared_property_strict: rejected
+g.V().hasLabel('Person').count()
+$ docker exec -i cmp-janusgraph curl -s --fail-with-body -X POST -d @- http://localhost:8182
+{"requestId":"6ac1f228-8794-4810-bd11-3ac091b71444","status":{"message":"","code":200,"attributes":{"@type":"g:Map","@value":[]}},"result":{"data":{"@type":"g:List","@value":[{"@type":"g:Int64","@value":12}]},"meta":{"@type":"g:Map","@value":[]}}}
+[exit 0]
+
+=> people_after_probes_strict: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: the JanusGraph profile rates branching and time travel as no, and branches are not emulated.
+=> branch_isolation: not available (profile: branching = no (none found))
+=> merge: not available (profile: branching = no)
+=> historical_read: not available (profile: time_travel = no (no versioned reads in the docs; backups are left to the storage backend))

@@ -1,0 +1,160 @@
+# dgraph v25.5.1 (dgraph/dgraph:v25.5.1)
+# run 2026-11-11 09:40 UTC
+
+
+## 1. Schema and load
+
+$ docker run -d --name cmp-dgraph dgraph/dgraph:v25.5.1 sh -c 'dgraph zero --my=localhost:5080 & dgraph alpha --my=localhost:7080 --zero=localhost:5080 --security whitelist=0.0.0.0/0 --limit mutations=allow'
+f5793c4c49c034dfcee1f59433441a8176a81b72709641ee77800ec2662ab2bb
+[exit 0]
+
+$ docker exec cmp-dgraph curl -s http://localhost:8080/health
+[{"instance":"alpha","address":"localhost:7080","status":"healthy","group":"1","version":"v25.5.1","uptime":6,"lastEcho":1794390017,"ongoing":["opRollup"],"ee_features":["backup_restore","cdc"],"max_assigned":2}]
+[exit 0]
+
+slug: string @index(exact) @upsert .
+name: string .
+age: int .
+works_at: uid @reverse .
+contributes_to: [uid] .
+
+type Person {
+  slug
+  name
+  age
+  works_at
+  contributes_to
+}
+
+type Company {
+  slug
+  name
+}
+
+type Project {
+  slug
+  name
+}
+
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/dql' --data-binary @- http://localhost:8080/alter
+{"data":{"code":"Success","message":"Done"}}
+[exit 0]
+
+# one JSON mutation: 45 objects, blank nodes _:<slug> link the edges
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/json' --data-binary @- 'http://localhost:8080/mutate?commitNow=true'
+{"data":{"code":"Success","message":"Done","queries":null,"uids":{"acme":"0x4","ada":"0x1","atlas":"0x5","beacon":"0x14","bram":"0x12","chen":"0x2","comet":"0x11","dara":"0xd","delta":"0xa","eli":"0x3","ember":"0xb","fatima":"0x6","globex":"0xc","goran":"0x7","hana":"0xe","initech":"0x9","ivo":"0x13","jun":"0xf","kira":"0x8","luis":"0x10"}},"extensions":{"server_latency":{"parsing_ns":75750,"processing_ns":1200416,"assign_timestamp_ns":367959,"total_ns":1902917},"txn":{"start_ts":4,"commit_ts":5,"preds":["1-0-age","1-0-contributes_to","1-0-dgraph.type","1-0-name","1-0-slug","1-0-works_at"]}}}
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+# company_projects: Acme's employees (reverse works_at), then the projects they contribute to.
+# uid(j) dedups the projects; orderasc sorts them by name.
+{
+  var(func: eq(slug, "acme")) @filter(type(Company)) {
+    ~works_at @filter(type(Person)) {
+      j as contributes_to
+    }
+  }
+  company_projects(func: uid(j), orderasc: name) {
+    project: name
+  }
+}
+
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/dql' --data-binary @- http://localhost:8080/query
+{"data":{"company_projects":[{"project":"Atlas"},{"project":"Beacon"},{"project":"Comet"}]},"extensions":{"server_latency":{"parsing_ns":89167,"processing_ns":504099875,"encoding_ns":47458,"assign_timestamp_ns":257750,"total_ns":504517708},"txn":{"start_ts":128},"metrics":{"num_uids":{"":0,"_total":13,"contributes_to":4,"dgraph.type":5,"name":3,"slug":0,"~works_at":1}}}}
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Default mode (--limit mutations=allow): keys without a suffix
+# age is a string: {"uid": "_:probe", "dgraph.type": "Person", "slug": "mo", "name": "Mo", "age": "forty"}
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/json' --data-binary @- 'http://localhost:8080/mutate?commitNow=true'
+{"errors":[{"message":"strconv.ParseInt: parsing \"forty\": invalid syntax","extensions":{"code":"ErrorInvalidRequest"}}],"data":null}
+[exit 0]
+
+=> rejects_wrong_type: rejected (strconv.ParseInt: parsing "forty": invalid syntax)
+# nickname isn't in the schema: {"uid": "_:probe", "dgraph.type": "Person", "slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/json' --data-binary @- 'http://localhost:8080/mutate?commitNow=true'
+{"data":{"code":"Success","message":"Done","queries":null,"uids":{"probe":"0x16"}},"extensions":{"server_latency":{"parsing_ns":14583,"processing_ns":740792,"assign_timestamp_ns":187250,"total_ns":1189000},"txn":{"start_ts":130,"commit_ts":131,"preds":["1-0-age","1-0-dgraph.type","1-0-name","1-0-nickname","1-0-slug"]}}}
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/dql' --data-binary @- http://localhost:8080/query
+{"data":{"people_count":[{"people":13}]},"extensions":{"server_latency":{"parsing_ns":26792,"processing_ns":900813876,"encoding_ns":13375,"assign_timestamp_ns":416875,"total_ns":901290001},"txn":{"start_ts":132},"metrics":{"num_uids":{"_total":0,"dgraph.type":0}}}}
+[exit 0]
+
+=> people_after_probes: 13 (12 means neither probe wrote)
+
+# Strict mode (--limit mutations=strict), fresh container, same schema and data: keys end in _strict
+$ docker run -d --name cmp-dgraph dgraph/dgraph:v25.5.1 sh -c 'dgraph zero --my=localhost:5080 & dgraph alpha --my=localhost:7080 --zero=localhost:5080 --security whitelist=0.0.0.0/0 --limit mutations=strict'
+3e736b98493d544957b4eead8ae7b60f9afa39a6dacef7c8dec79d1028bcf590
+[exit 0]
+
+$ docker exec cmp-dgraph curl -s http://localhost:8080/health
+[{"instance":"alpha","address":"localhost:7080","status":"healthy","group":"1","version":"v25.5.1","uptime":6,"lastEcho":1794390026,"ongoing":["opRollup"],"ee_features":["backup_restore","cdc"],"max_assigned":2}]
+[exit 0]
+
+slug: string @index(exact) @upsert .
+name: string .
+age: int .
+works_at: uid @reverse .
+contributes_to: [uid] .
+
+type Person {
+  slug
+  name
+  age
+  works_at
+  contributes_to
+}
+
+type Company {
+  slug
+  name
+}
+
+type Project {
+  slug
+  name
+}
+
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/dql' --data-binary @- http://localhost:8080/alter
+{"data":{"code":"Success","message":"Done"}}
+[exit 0]
+
+# one JSON mutation: 45 objects, blank nodes _:<slug> link the edges
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/json' --data-binary @- 'http://localhost:8080/mutate?commitNow=true'
+{"data":{"code":"Success","message":"Done","queries":null,"uids":{"acme":"0xb","ada":"0x2","atlas":"0x10","beacon":"0x1","bram":"0xd","chen":"0x8","comet":"0x11","dara":"0x9","delta":"0xc","eli":"0x12","ember":"0x7","fatima":"0xa","globex":"0xf","goran":"0x3","hana":"0x4","initech":"0x14","ivo":"0x13","jun":"0xe","kira":"0x5","luis":"0x6"}},"extensions":{"server_latency":{"parsing_ns":41667,"processing_ns":1244584,"assign_timestamp_ns":438708,"total_ns":2120291},"txn":{"start_ts":4,"commit_ts":5,"preds":["1-0-age","1-0-contributes_to","1-0-dgraph.type","1-0-name","1-0-slug","1-0-works_at"]}}}
+[exit 0]
+
+# age is a string: {"uid": "_:probe", "dgraph.type": "Person", "slug": "mo", "name": "Mo", "age": "forty"}
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/json' --data-binary @- 'http://localhost:8080/mutate?commitNow=true'
+{"errors":[{"message":"strconv.ParseInt: parsing \"forty\": invalid syntax","extensions":{"code":"ErrorInvalidRequest"}}],"data":null}
+[exit 0]
+
+=> rejects_wrong_type_strict: rejected (strconv.ParseInt: parsing "forty": invalid syntax)
+# nickname isn't in the schema: {"uid": "_:probe", "dgraph.type": "Person", "slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/json' --data-binary @- 'http://localhost:8080/mutate?commitNow=true'
+{"errors":[{"message":"Schema not defined for predicate: 0-nickname.","extensions":{"code":"ErrorInvalidRequest"}}],"data":null}
+[exit 0]
+
+=> rejects_undeclared_property_strict: rejected (Schema not defined for predicate: 0-nickname.)
+$ docker exec -i cmp-dgraph curl -sS -H 'Content-Type: application/dql' --data-binary @- http://localhost:8080/query
+{"data":{"people_count":[{"people":12}]},"extensions":{"server_latency":{"parsing_ns":47125,"processing_ns":601088167,"encoding_ns":43791,"assign_timestamp_ns":229375,"total_ns":601426667},"txn":{"start_ts":130},"metrics":{"num_uids":{"_total":0,"dgraph.type":0}}}}
+[exit 0]
+
+=> people_after_probes_strict: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: the Dgraph profile rates branching 'no' and time_travel 'partial' (binary backups restored, not queried).
+=> branch_isolation: not available (profile: branching = no (None found))
+=> merge: not available (profile: branching = no (None found))
+=> historical_read: not available (profile: time_travel = partial (binary backups restored, not queried))
+$ docker rm -f cmp-dgraph
+cmp-dgraph
+[exit 0]
+

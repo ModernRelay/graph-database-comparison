@@ -1,0 +1,12 @@
+# company_projects: Acme's employees (reverse works_at), then the projects they contribute to.
+# uid(j) dedups the projects; orderasc sorts them by name.
+{
+  var(func: eq(slug, "acme")) @filter(type(Company)) {
+    ~works_at @filter(type(Person)) {
+      j as contributes_to
+    }
+  }
+  company_projects(func: uid(j), orderasc: name) {
+    project: name
+  }
+}

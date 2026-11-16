@@ -1,0 +1,211 @@
+# helixdb server image ghcr.io/helixdb/helixdb:v0.0.15
+# run 2026-11-11 09:40 UTC
+
+
+## 1. Schema and load
+
+$ docker run -d --name cmp-helixdb -p 127.0.0.1:19069:8080 ghcr.io/helixdb/helixdb:v0.0.15
+981dd0e46b300db5a51c9d16da5fd8effb7cb2fe7ff085da0427cb96264df2ff
+[exit 0]
+
+$ curl -fsS http://127.0.0.1:19069/readyz
+{"blocked_index_entity_count":0,"index_runtime":"ready","mode":"writer","ready":true}
+[exit 0]
+
+# No schema step: HelixDB v3 has no schema file or declared types (profile: schema_on_write = partial, 'No declared types; any label or property accepted').
+# one write batch, one transaction: 45 entries (add_n per node, add_e per edge)
+$ curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- -w '\n%{http_code}' http://127.0.0.1:19069/v2/query
+{}
+200
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+# company_projects.json: Company acme <-WORKS_AT- Person -CONTRIBUTES_TO-> dedup, order_by name asc
+{
+  "request_type": "read",
+  "query_name": "company_projects",
+  "query": {
+    "read": {
+      "entries": [
+        {
+          "query": {
+            "name": "company_projects",
+            "root": {
+              "value_map": {
+                "input": {
+                  "order_by": {
+                    "input": {
+                      "dedup": {
+                        "input": {
+                          "out": {
+                            "input": {
+                              "where": {
+                                "input": {
+                                  "in": {
+                                    "input": {
+                                      "nodes_where": {
+                                        "predicate": {
+                                          "and": {
+                                            "predicates": [
+                                              {
+                                                "eq": {
+                                                  "left": {
+                                                    "property": "$label"
+                                                  },
+                                                  "right": {
+                                                    "constant": {
+                                                      "string": "Company"
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "eq": {
+                                                  "left": {
+                                                    "property": "slug"
+                                                  },
+                                                  "right": {
+                                                    "constant": {
+                                                      "string": "acme"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "label": "WORKS_AT"
+                                  }
+                                },
+                                "predicate": {
+                                  "eq": {
+                                    "left": {
+                                      "property": "$label"
+                                    },
+                                    "right": {
+                                      "constant": {
+                                        "string": "Person"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "label": "CONTRIBUTES_TO"
+                          }
+                        }
+                      }
+                    },
+                    "property": "name",
+                    "order": "asc"
+                  }
+                },
+                "properties": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "returns": [
+        "company_projects"
+      ]
+    }
+  }
+}
+
+$ curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- -w '\n%{http_code}' http://127.0.0.1:19069/v2/query
+{"company_projects":[{"name":"Atlas"},{"name":"Beacon"},{"name":"Comet"}]}
+200
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+# Same question through POST /v2/cypher (cross-check, not scored):
+MATCH (c:Company {slug: $company})<-[:WORKS_AT]-(p:Person)-[:CONTRIBUTES_TO]->(j:Project)
+RETURN DISTINCT j.name AS project
+ORDER BY project
+
+$ curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- -w '\n%{http_code}' http://127.0.0.1:19069/v2/cypher
+{"columns":["project"],"rows":[["Atlas"],["Beacon"],["Comet"]]}
+200
+[exit 0]
+
+# /v2/cypher answered HTTP 200: [['Atlas'], ['Beacon'], ['Comet']]
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# age is a string: {"query": {"name": "probe", "root": {"add_n": {"label": "Person", "properties": [["slug", {"value": {"string": "mo"}}], ["name", {"value": {"string": "Mo"}}], ["age", {"value": {"string": "forty"}}]]}}}}
+$ curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- -w '\n%{http_code}' http://127.0.0.1:19069/v2/query
+{}
+200
+[exit 0]
+
+=> rejects_wrong_type: accepted
+# nickname isn't in the schema: {"query": {"name": "probe", "root": {"add_n": {"label": "Person", "properties": [["slug", {"value": {"string": "nia"}}], ["name", {"value": {"string": "Nia"}}], ["age", {"value": {"i64": 28}}], ["nickname", {"value": {"string": "N"}}]]}}}}
+$ curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- -w '\n%{http_code}' http://127.0.0.1:19069/v2/query
+{}
+200
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+{
+  "request_type": "read",
+  "query_name": "people_count",
+  "query": {
+    "read": {
+      "entries": [
+        {
+          "query": {
+            "name": "people",
+            "root": {
+              "count": {
+                "input": {
+                  "nodes_where": {
+                    "predicate": {
+                      "eq": {
+                        "left": {
+                          "property": "$label"
+                        },
+                        "right": {
+                          "constant": {
+                            "string": "Person"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "returns": [
+        "people"
+      ]
+    }
+  }
+}
+
+$ curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- -w '\n%{http_code}' http://127.0.0.1:19069/v2/query
+{"people":14}
+200
+[exit 0]
+
+=> people_after_probes: 14 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: the HelixDB profile rates branching 'no' and time_travel 'no'.
+=> branch_isolation: not available (profile: branching = no (None in docs))
+=> merge: not available (profile: branching = no (None in docs))
+=> historical_read: not available (profile: time_travel = no (backups and point-in-time recovery on roadmap))
+$ docker rm -f cmp-helixdb
+cmp-helixdb
+[exit 0]
+

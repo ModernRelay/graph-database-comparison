@@ -1,0 +1,5 @@
+{
+  people_count(func: type(Person)) {
+    people: count(uid)
+  }
+}

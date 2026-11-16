@@ -1,0 +1,38 @@
+{
+  "request_type": "read",
+  "query_name": "people_count",
+  "query": {
+    "read": {
+      "entries": [
+        {
+          "query": {
+            "name": "people",
+            "root": {
+              "count": {
+                "input": {
+                  "nodes_where": {
+                    "predicate": {
+                      "eq": {
+                        "left": {
+                          "property": "$label"
+                        },
+                        "right": {
+                          "constant": {
+                            "string": "Person"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "returns": [
+        "people"
+      ]
+    }
+  }
+}

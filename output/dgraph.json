@@ -1,0 +1,42 @@
+{
+  "two_hop_query": {
+    "value": "pass",
+    "detail": "got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet']"
+  },
+  "rejects_wrong_type": {
+    "value": "rejected",
+    "detail": "strconv.ParseInt: parsing \"forty\": invalid syntax"
+  },
+  "rejects_undeclared_property": {
+    "value": "accepted",
+    "detail": ""
+  },
+  "people_after_probes": {
+    "value": 13,
+    "detail": "12 means neither probe wrote"
+  },
+  "rejects_wrong_type_strict": {
+    "value": "rejected",
+    "detail": "strconv.ParseInt: parsing \"forty\": invalid syntax"
+  },
+  "rejects_undeclared_property_strict": {
+    "value": "rejected",
+    "detail": "Schema not defined for predicate: 0-nickname."
+  },
+  "people_after_probes_strict": {
+    "value": 12,
+    "detail": "12 means neither probe wrote"
+  },
+  "branch_isolation": {
+    "value": "not available",
+    "detail": "profile: branching = no (None found)"
+  },
+  "merge": {
+    "value": "not available",
+    "detail": "profile: branching = no (None found)"
+  },
+  "historical_read": {
+    "value": "not available",
+    "detail": "profile: time_travel = partial (binary backups restored, not queried)"
+  }
+}

@@ -1,0 +1,6 @@
+select([Project], order_by([asc(Project)], distinct([Project], (
+  t(C, slug, "acme"^^xsd:string),
+  t(P, works_at, C),
+  t(P, contributes_to, J),
+  t(J, name, Project)
+))))

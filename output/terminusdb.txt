@@ -1,0 +1,288 @@
+# terminusdb v12.0.9 (7c1afd2417d64b4cb3a01fea3ba6c7c5a3eff52e) (image terminusdb/terminusdb-server:v12.0.9)
+# run 2026-11-11 09:43 UTC
+
+
+## 1. Schema and load
+
+$ docker exec -i cmp-terminusdb ./terminusdb db create admin/cmp
+Database created: admin/cmp
+[exit 0]
+
+[
+  {"@type": "@context", "@base": "terminusdb:///data/", "@schema": "terminusdb:///schema#"},
+  {"@type": "Class", "@id": "Company", "@key": {"@type": "Lexical", "@fields": ["slug"]},
+   "slug": "xsd:string", "name": "xsd:string"},
+  {"@type": "Class", "@id": "Project", "@key": {"@type": "Lexical", "@fields": ["slug"]},
+   "slug": "xsd:string", "name": "xsd:string"},
+  {"@type": "Class", "@id": "Person", "@key": {"@type": "Lexical", "@fields": ["slug"]},
+   "slug": "xsd:string", "name": "xsd:string", "age": "xsd:integer",
+   "works_at": {"@type": "Optional", "@class": "Company"},
+   "contributes_to": {"@type": "Set", "@class": "Project"}}
+]
+
+$ docker exec -i cmp-terminusdb ./terminusdb doc insert admin/cmp --graph_type schema --full_replace
+Documents inserted:
+ 1: Company
+ 2: Project
+ 3: Person
+[exit 0]
+
+# 20 documents, one commit; the first Person:
+{"@type": "Person", "slug": "ada", "name": "Ada", "age": 36, "works_at": "Company/acme", "contributes_to": ["Project/atlas", "Project/beacon"]}
+$ docker exec -i cmp-terminusdb ./terminusdb doc insert admin/cmp
+Documents inserted:
+  1: terminusdb:///data/Company/acme
+  2: terminusdb:///data/Company/globex
+  3: terminusdb:///data/Company/initech
+  4: terminusdb:///data/Project/atlas
+  5: terminusdb:///data/Project/beacon
+  6: terminusdb:///data/Project/comet
+  7: terminusdb:///data/Project/delta
+  8: terminusdb:///data/Project/ember
+  9: terminusdb:///data/Person/ada
+ 10: terminusdb:///data/Person/bram
+ 11: terminusdb:///data/Person/chen
+ 12: terminusdb:///data/Person/dara
+ 13: terminusdb:///data/Person/eli
+ 14: terminusdb:///data/Person/fatima
+ 15: terminusdb:///data/Person/goran
+ 16: terminusdb:///data/Person/hana
+ 17: terminusdb:///data/Person/ivo
+ 18: terminusdb:///data/Person/jun
+ 19: terminusdb:///data/Person/kira
+ 20: terminusdb:///data/Person/luis
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+select([Project], order_by([asc(Project)], distinct([Project], (
+  t(C, slug, "acme"^^xsd:string),
+  t(P, works_at, C),
+  t(P, contributes_to, J),
+  t(J, name, Project)
+))))
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp 'select([Project], order_by([asc(Project)], distinct([Project], (
+  t(C, slug, "acme"^^xsd:string),
+  t(P, works_at, C),
+  t(P, contributes_to, J),
+  t(J, name, Project)
+))))'
+Project
+"Atlas"^^'xsd:string'
+"Beacon"^^'xsd:string'
+"Comet"^^'xsd:string'
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp 'select([Project], order_by([asc(Project)], distinct([Project], (
+  t(C, slug, "acme"^^xsd:string),
+  t(P, works_at, C),
+  t(P, contributes_to, J),
+  t(J, name, Project)
+))))' --json
+{
+  "@type":"api:WoqlResponse",
+  "api:status":"api:success",
+  "api:variable_names": ["Project" ],
+  "bindings": [
+    {"Project": {"@type":"xsd:string","@value":"Atlas"}},
+    {"Project": {"@type":"xsd:string","@value":"Beacon"}},
+    {"Project": {"@type":"xsd:string","@value":"Comet"}}
+  ],
+  "deletes":0,
+  "inserts":0,
+  "transaction_retry_count":0
+}
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Default: the closed-world schema is checked on every commit. The opt-in raw_json mode is looser, not stricter, so there is no strict run.
+# age is a string: {"@type": "Person", "slug": "mo", "name": "Mo", "age": "forty"}
+$ docker exec -i cmp-terminusdb ./terminusdb doc insert admin/cmp
+Error: Schema check failure
+{
+  "@type":"api:InsertDocumentErrorResponse",
+  "api:error": {
+    "@type":"api:SchemaCheckFailure",
+    "api:witnesses": [
+      {
+	"terminusdb:///schema#age": {
+	  "@type":"could_not_interpret_as_type",
+	  "type":"http://www.w3.org/2001/XMLSchema#integer",
+	  "value":"forty"
+	}
+      }
+    ]
+  },
+  "api:message":"Schema check failure",
+  "api:status":"api:failure"
+}
+[exit 1]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema: {"@type": "Person", "slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}
+$ docker exec -i cmp-terminusdb ./terminusdb doc insert admin/cmp
+Error: Schema check failure
+{
+  "@type":"api:InsertDocumentErrorResponse",
+  "api:error": {
+    "@type":"api:SchemaCheckFailure",
+    "api:witnesses": [
+      {
+	"@type":"unknown_property_for_type",
+	"document": {
+	  "@type":"terminusdb:///schema#Person",
+	  "terminusdb:///schema#age":28,
+	  "terminusdb:///schema#name":"Nia",
+	  "terminusdb:///schema#nickname":"N",
+	  "terminusdb:///schema#slug":"nia"
+	},
+	"property": ["terminusdb:///schema#nickname" ],
+	"type":"terminusdb:///schema#Person"
+      }
+    ]
+  },
+  "api:message":"Schema check failure",
+  "api:status":"api:failure"
+}
+[exit 1]
+
+=> rejects_undeclared_property: rejected
+count(isa(P, "Person"), People)
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp 'count(isa(P, "Person"), People)' --json
+{
+  "@type":"api:WoqlResponse",
+  "api:status":"api:success",
+  "api:variable_names": ["People" ],
+  "bindings": [ {"People": {"@type":"xsd:decimal","@value":12}} ],
+  "deletes":0,
+  "inserts":0,
+  "transaction_retry_count":0
+}
+[exit 0]
+
+=> people_after_probes: 12 (12 means neither probe wrote)
+$ docker exec -i cmp-terminusdb ./terminusdb log admin/cmp --json --count 1
+[
+  {
+    "@id":"ValidCommit/yddksom6c7llc4exqdmnggwuml1z8vy",
+    "@type":"ValidCommit",
+    "author":"admin",
+    "identifier":"yddksom6c7llc4exqdmnggwuml1z8vy",
+    "instance":"layer_data:Layer_088540e9794bd0869a64f596a6fc62d8668e9fce059151bb89e89f1e8c4069e7",
+    "message":"cli: document insert",
+    "parent":"ValidCommit/8omkn9obd92wt8ex3w2a2lwkl799ua1",
+    "schema":"layer_data:Layer_255d1a61b1d49d414519b85f0f9a2b7236919896df256c2d64f52901f8b2f32b",
+    "timestamp":1794390220.11038749592966460436,
+    "user":"terminusdb://system/data/User/admin"
+  }
+]
+[exit 0]
+
+
+## 4. Branch, merge and a historical read
+
+$ docker exec -i cmp-terminusdb ./terminusdb branch create admin/cmp/local/branch/review-add-omar --origin admin/cmp/local/branch/main
+admin/cmp/local/branch/review-add-omar branch created
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb doc insert admin/cmp/local/branch/review-add-omar -m 'add omar'
+Documents inserted:
+ 1: terminusdb:///data/Person/omar
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp/local/branch/review-add-omar 'count(isa(P, "Person"), People)' --json
+{
+  "@type":"api:WoqlResponse",
+  "api:status":"api:success",
+  "api:variable_names": ["People" ],
+  "bindings": [ {"People": {"@type":"xsd:decimal","@value":13}} ],
+  "deletes":0,
+  "inserts":0,
+  "transaction_retry_count":0
+}
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp 'count(isa(P, "Person"), People)' --json
+{
+  "@type":"api:WoqlResponse",
+  "api:status":"api:success",
+  "api:variable_names": ["People" ],
+  "bindings": [ {"People": {"@type":"xsd:decimal","@value":12}} ],
+  "deletes":0,
+  "inserts":0,
+  "transaction_retry_count":0
+}
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb log admin/cmp/local/branch/review-add-omar --json --count 1
+[
+  {
+    "@id":"ValidCommit/d2trf0xih0m6udtkfw1wa24u16yz1np",
+    "@type":"ValidCommit",
+    "author":"admin",
+    "identifier":"d2trf0xih0m6udtkfw1wa24u16yz1np",
+    "instance":"layer_data:Layer_e7bf785f6ac04fd47723acde52ac3e8a6f30bb2f8192c59a78a5331ca8d01029",
+    "message":"add omar",
+    "parent":"ValidCommit/yddksom6c7llc4exqdmnggwuml1z8vy",
+    "schema":"layer_data:Layer_255d1a61b1d49d414519b85f0f9a2b7236919896df256c2d64f52901f8b2f32b",
+    "timestamp":1794390222.39751552795031055901,
+    "user":"terminusdb://system/data/User/admin"
+  }
+]
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb apply admin/cmp/local/branch/main --before-commit yddksom6c7llc4exqdmnggwuml1z8vy --after-commit d2trf0xih0m6udtkfw1wa24u16yz1np -m 'merge review-add-omar into main'
+Successfully applied
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp 'count(isa(P, "Person"), People)' --json
+{
+  "@type":"api:WoqlResponse",
+  "api:status":"api:success",
+  "api:variable_names": ["People" ],
+  "bindings": [ {"People": {"@type":"xsd:decimal","@value":13}} ],
+  "deletes":0,
+  "inserts":0,
+  "transaction_retry_count":0
+}
+[exit 0]
+
+$ docker exec -i cmp-terminusdb ./terminusdb log admin/cmp --count 3
+plsr8jjq394rg058hn57dvvaxpkc053
+--------------------------------
+Date: 2026-11-11T09:43:43+00:00
+Author: admin
+Message: merge review-add-omar into main
+
+yddksom6c7llc4exqdmnggwuml1z8vy
+--------------------------------
+Date: 2026-11-11T09:43:40+00:00
+Author: admin
+Message: cli: document insert
+
+8omkn9obd92wt8ex3w2a2lwkl799ua1
+--------------------------------
+Date: 2026-11-11T09:43:39+00:00
+Author: admin
+Message: cli: document insert
+[exit 0]
+
+=> branch_isolation: pass (branch 13, main 12 before merge)
+=> merge: pass (main 13 after merge)
+$ docker exec -i cmp-terminusdb ./terminusdb query admin/cmp/local/commit/yddksom6c7llc4exqdmnggwuml1z8vy 'count(isa(P, "Person"), People)' --json
+{
+  "@type":"api:WoqlResponse",
+  "api:status":"api:success",
+  "api:variable_names": ["People" ],
+  "bindings": [ {"People": {"@type":"xsd:decimal","@value":12}} ],
+  "deletes":0,
+  "inserts":0,
+  "transaction_retry_count":0
+}
+[exit 0]
+
+=> historical_read: pass (12 people at commit yddksom6c7llc4exqdmnggwuml1z8vy, read after the merge)

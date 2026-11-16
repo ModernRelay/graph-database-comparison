@@ -1,0 +1,19 @@
+# Local changes on top of the official docker-compose-lite.yaml (vesoft-inc/nebula-docker-compose,
+# tag v3.8.0, commit 8b6e00b), which is kept verbatim next to this file:
+#   1. publish no host ports (the runner talks to graphd through the console container instead);
+#   2. add a nebula-console v3.8.0 container that idles so the runner can docker exec into it.
+services:
+  metad0:
+    ports: !reset []
+  storaged0:
+    ports: !reset []
+  graphd:
+    ports: !reset []
+  console:
+    image: docker.io/vesoft/nebula-console:v3.8.0
+    entrypoint: ""
+    command: ["sh", "-c", "tail -f /dev/null"]
+    depends_on:
+      - graphd
+    networks:
+      - nebula-net

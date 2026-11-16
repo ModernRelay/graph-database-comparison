@@ -1,0 +1,30 @@
+{
+  "two_hop_query": {
+    "value": "pass",
+    "detail": "got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet']"
+  },
+  "rejects_wrong_type": {
+    "value": "accepted",
+    "detail": ""
+  },
+  "rejects_undeclared_property": {
+    "value": "accepted",
+    "detail": ""
+  },
+  "people_after_probes": {
+    "value": 14,
+    "detail": "12 means neither probe wrote"
+  },
+  "branch_isolation": {
+    "value": "not available",
+    "detail": "profile: branching = no (None in docs)"
+  },
+  "merge": {
+    "value": "not available",
+    "detail": "profile: branching = no (None in docs)"
+  },
+  "historical_read": {
+    "value": "not available",
+    "detail": "profile: time_travel = no (backups and point-in-time recovery on roadmap)"
+  }
+}

@@ -1,0 +1,1 @@
+count(isa(P, "Person"), People)

@@ -1,0 +1,113 @@
+# neo4j Community Edition (docker image neo4j:2026.10.2-community)
+# run 2026-11-11 09:42 UTC
+
+$ docker run -d --name cmp-neo4j -e NEO4J_AUTH=neo4j/compare-pass neo4j:2026.10.2-community
+f6767b0bb20eb46a4bcf6c0915c7c236fb37fbeb751f15676bc9e9a81c9982f0
+[exit 0]
+
+$ docker exec cmp-neo4j cypher-shell -u neo4j -p compare-pass 'CALL dbms.components() YIELD name, versions, edition RETURN name, versions, edition'
+name, versions, edition
+"Neo4j Kernel", ["2026.10.2"], "community"
+"Cypher", ["5", "25"], ""
+[exit 0]
+
+
+## 1. Schema and load
+
+// Neo4j Community Edition: uniqueness constraints are the schema it offers.
+CREATE CONSTRAINT person_slug IF NOT EXISTS FOR (p:Person) REQUIRE p.slug IS UNIQUE;
+CREATE CONSTRAINT company_slug IF NOT EXISTS FOR (c:Company) REQUIRE c.slug IS UNIQUE;
+CREATE CONSTRAINT project_slug IF NOT EXISTS FOR (j:Project) REQUIRE j.slug IS UNIQUE;
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+
+[exit 0]
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+name, type, labelsOrTypes, properties
+"company_slug", "NODE_PROPERTY_UNIQUENESS", ["Company"], ["slug"]
+"person_slug", "NODE_PROPERTY_UNIQUENESS", ["Person"], ["slug"]
+"project_slug", "NODE_PROPERTY_UNIQUENESS", ["Project"], ["slug"]
+[exit 0]
+
+UNWIND [{slug: "ada", name: "Ada", age: 36}, {slug: "bram", name: "Bram", age: 29}, {slug: "chen", name: "Chen", age: 41}, {slug: "dara", name: "Dara", age: 33}, {slug: "eli", name: "Eli", age: 27}, {slug: "fatima", name: "Fatima", age: 38}, {slug: "goran", name: "Goran", age: 45}, {slug: "hana", name: "Hana", age: 31}, {slug: "ivo", name: "Ivo", age: 24}, {slug: "jun", name: "Jun", age: 39}, {slug: "kira", name: "Kira", age: 30}, {slug: "luis", name: "Luis", age: 35}] AS row CREATE (:Person {slug: row.slug, name: row.name, age: row.age});
+UNWIND [{slug: "acme", name: "Acme"}, {slug: "globex", name: "Globex"}, {slug: "initech", name: "Initech"}] AS row CREATE (:Company {slug: row.slug, name: row.name});
+UNWIND [{slug: "atlas", name: "Atlas"}, {slug: "beacon", name: "Beacon"}, {slug: "comet", name: "Comet"}, {slug: "delta", name: "Delta"}, {slug: "ember", name: "Ember"}] AS row CREATE (:Project {slug: row.slug, name: row.name});
+UNWIND [{a: "ada", b: "acme"}, {a: "bram", b: "acme"}, {a: "chen", b: "acme"}, {a: "dara", b: "acme"}, {a: "eli", b: "globex"}, {a: "fatima", b: "globex"}, {a: "goran", b: "globex"}, {a: "hana", b: "globex"}, {a: "ivo", b: "initech"}, {a: "jun", b: "initech"}, {a: "kira", b: "initech"}, {a: "luis", b: "initech"}] AS row MATCH (p:Person {slug: row.a}), (c:Company {slug: row.b}) CREATE (p)-[:WORKS_AT]->(c);
+UNWIND [{a: "ada", b: "atlas"}, {a: "ada", b: "beacon"}, {a: "bram", b: "atlas"}, {a: "chen", b: "comet"}, {a: "dara", b: "beacon"}, {a: "eli", b: "delta"}, {a: "fatima", b: "delta"}, {a: "goran", b: "ember"}, {a: "hana", b: "comet"}, {a: "ivo", b: "ember"}, {a: "jun", b: "delta"}, {a: "kira", b: "atlas"}, {a: "luis", b: "ember"}] AS row MATCH (p:Person {slug: row.a}), (j:Project {slug: row.b}) CREATE (p)-[:CONTRIBUTES_TO]->(j);
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+
+[exit 0]
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+label, n
+"Company", 3
+"Person", 12
+"Project", 5
+[exit 0]
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+type, n
+"CONTRIBUTES_TO", 13
+"WORKS_AT", 12
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+MATCH (c:Company {slug: $company})<-[:WORKS_AT]-(p:Person)-[:CONTRIBUTES_TO]->(j:Project)
+RETURN DISTINCT j.name AS project
+ORDER BY project;
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain --param 'company => "acme"'
+project
+"Atlas"
+"Beacon"
+"Comet"
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Default setup: the uniqueness constraints from step 1, nothing else.
+# age is a string: CREATE (:Person {slug: "mo", name: "Mo", age: "forty"});
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+
+[exit 0]
+
+=> rejects_wrong_type: accepted
+# nickname isn't in the schema: CREATE (:Person {slug: "nia", name: "Nia", age: 28, nickname: "N"});
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+people
+14
+[exit 0]
+
+=> people_after_probes: 14 (12 means neither probe wrote)
+
+# Stricter mode: property type constraints. Community Edition may refuse to create them.
+// Stricter mode: property type constraints (documented as Enterprise Edition only).
+CREATE CONSTRAINT person_age_int IF NOT EXISTS FOR (p:Person) REQUIRE p.age IS :: INTEGER;
+CREATE CONSTRAINT person_name_str IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS :: STRING;
+
+$ docker exec -i cmp-neo4j cypher-shell -u neo4j -p compare-pass --format plain
+51N27: system configuration or operation exception - not supported in this edition. Property type constraint is not supported in community edition.
+  50N11: general processing exception - constraint creation failed. Unable to create 'person_age_int'.
+[exit 1]
+
+=> rejects_wrong_type_strict: not available (Community Edition refused to create a property type constraint (see the error above))
+=> rejects_undeclared_property_strict: not available (Community Edition refused to create a property type constraint (see the error above))
+=> people_after_probes_strict: not available (Community Edition refused to create a property type constraint (see the error above))
+
+## 4. Branch, merge and a historical read
+
+# Not run: the Neo4j profile rates branching and time travel below yes, and branches are not emulated.
+=> branch_isolation: not available (profile: branching = no (no branching in the CE or EE feature list))
+=> merge: not available (profile: branching = no)
+=> historical_read: not available (profile: time_travel = partial (CE has offline dump/load only; online backup is Enterprise only))

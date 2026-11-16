@@ -1,0 +1,8 @@
+CREATE SPACE IF NOT EXISTS cmp (vid_type = FIXED_STRING(32));
+USE cmp;
+CREATE TAG IF NOT EXISTS Person (name string NOT NULL, age int NOT NULL);
+CREATE TAG IF NOT EXISTS Company (name string NOT NULL);
+CREATE TAG IF NOT EXISTS Project (name string NOT NULL);
+CREATE EDGE IF NOT EXISTS WorksAt ();
+CREATE EDGE IF NOT EXISTS ContributesTo ();
+CREATE TAG INDEX IF NOT EXISTS person_index ON Person ();

@@ -1,0 +1,18 @@
+query company_projects($company: String) {
+  match {
+    $c: Company { slug: $company }
+    $p: Person
+    $j: Project
+    $p worksAt $c
+    $p contributesTo $j
+  }
+  return distinct { $j.name as project }
+  order { project asc }
+}
+
+query people_count() {
+  match {
+    $p: Person
+  }
+  return { count($p) as people }
+}
