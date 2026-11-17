@@ -1,0 +1,252 @@
+# nebulagraph Community 3.8.0 (vesoft/nebula-graphd, -metad, -storaged, -console:v3.8.0)
+# run 2026-11-11 09:40 UTC
+
+
+## 1. Schema and load
+
+$ TZ=UTC docker compose -p cmp-nebulagraph --project-directory $WORK -f $CODE/compare/nebulagraph/docker-compose-lite.yaml -f $CODE/compare/nebulagraph/compose.override.yaml up -d --quiet-pull
+time="2026-11-11T09:40:58Z" level=warning msg="$CODE/compare/nebulagraph/docker-compose-lite.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Network cmp-nebulagraph_nebula-net Creating 
+ Network cmp-nebulagraph_nebula-net Created 
+ Container cmp-nebulagraph-metad0-1 Creating 
+ Container cmp-nebulagraph-metad0-1 Created 
+ Container cmp-nebulagraph-storaged0-1 Creating 
+ Container cmp-nebulagraph-storaged0-1 Created 
+ Container cmp-nebulagraph-graphd-1 Creating 
+ Container cmp-nebulagraph-graphd-1 Created 
+ Container cmp-nebulagraph-console-1 Creating 
+ Container cmp-nebulagraph-console-1 Created 
+ Container cmp-nebulagraph-metad0-1 Starting 
+ Container cmp-nebulagraph-metad0-1 Started 
+ Container cmp-nebulagraph-storaged0-1 Starting 
+ Container cmp-nebulagraph-storaged0-1 Started 
+ Container cmp-nebulagraph-graphd-1 Starting 
+ Container cmp-nebulagraph-graphd-1 Started 
+ Container cmp-nebulagraph-console-1 Starting 
+ Container cmp-nebulagraph-console-1 Started
+[exit 0]
+
+$ docker exec cmp-nebulagraph-graphd-1 /usr/local/nebula/bin/nebula-graphd --version
+nebula-graphd version 3.8.0, Git: 7458486, Build Time: May 15 2024 20:30:23
+This source code is licensed under Apache 2.0 License.
+[exit 0]
+
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'ADD HOSTS "storaged0":9779'
+(root@nebula) [(none)]> ADD HOSTS "storaged0":9779
+Execution succeeded (time spent 1.874ms/2.04575ms)
+
+Wed, 11 Nov 2026 09:41:50 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:41:50 UTC
+[exit 0]
+
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'SHOW HOSTS'
+(root@nebula) [(none)]> SHOW HOSTS
++-------------+------+----------+--------------+----------------------+------------------------+---------+
+| Host        | Port | Status   | Leader count | Leader distribution  | Partition distribution | Version |
++-------------+------+----------+--------------+----------------------+------------------------+---------+
+| "storaged0" | 9779 | "ONLINE" | 0            | "No valid partition" | "No valid partition"   |         |
++-------------+------+----------+--------------+----------------------+------------------------+---------+
+Got 1 rows (time spent 292µs/419.583µs)
+
+Wed, 11 Nov 2026 09:41:50 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:41:50 UTC
+[exit 0]
+
+CREATE SPACE IF NOT EXISTS cmp (vid_type = FIXED_STRING(32));
+USE cmp;
+CREATE TAG IF NOT EXISTS Person (name string NOT NULL, age int NOT NULL);
+CREATE TAG IF NOT EXISTS Company (name string NOT NULL);
+CREATE TAG IF NOT EXISTS Project (name string NOT NULL);
+CREATE EDGE IF NOT EXISTS WorksAt ();
+CREATE EDGE IF NOT EXISTS ContributesTo ();
+CREATE TAG INDEX IF NOT EXISTS person_index ON Person ();
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'CREATE SPACE IF NOT EXISTS cmp (vid_type = FIXED_STRING(32));'
+(root@nebula) [(none)]> CREATE SPACE IF NOT EXISTS cmp (vid_type = FIXED_STRING(32));
+Execution succeeded (time spent 834µs/915.541µs)
+
+Wed, 11 Nov 2026 09:41:50 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:41:50 UTC
+[exit 0]
+
+# waited 5 s for USE cmp to succeed
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; CREATE TAG IF NOT EXISTS Person (name string NOT NULL, age int NOT NULL); CREATE TAG IF NOT EXISTS Company (name string NOT NULL); CREATE TAG IF NOT EXISTS Project (name string NOT NULL); CREATE EDGE IF NOT EXISTS WorksAt (); CREATE EDGE IF NOT EXISTS ContributesTo (); CREATE TAG INDEX IF NOT EXISTS person_index ON Person ();'
+(root@nebula) [(none)]> USE cmp; CREATE TAG IF NOT EXISTS Person (name string NOT NULL, age int NOT NULL); CREATE TAG IF NOT EXISTS Company (name string NOT NULL); CREATE TAG IF NOT EXISTS Project (name string NOT NULL); CREATE EDGE IF NOT EXISTS WorksAt (); CREATE EDGE IF NOT EXISTS ContributesTo (); CREATE TAG INDEX IF NOT EXISTS person_index ON Person ();
+Execution succeeded (time spent 1.862ms/1.955875ms)
+
+Wed, 11 Nov 2026 09:41:55 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:41:55 UTC
+[exit 0]
+
+# waited 31 s (about): until every partition had a leader, and at least two heartbeats (20 s) for the tags, edge types and index to reach storaged
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'SHOW HOSTS'
+(root@nebula) [(none)]> SHOW HOSTS
++-------------+------+----------+--------------+---------------------+------------------------+---------+
+| Host        | Port | Status   | Leader count | Leader distribution | Partition distribution | Version |
++-------------+------+----------+--------------+---------------------+------------------------+---------+
+| "storaged0" | 9779 | "ONLINE" | 100          | "cmp:100"           | "cmp:100"              | "3.8.0" |
++-------------+------+----------+--------------+---------------------+------------------------+---------+
+Got 1 rows (time spent 342µs/483.625µs)
+
+Wed, 11 Nov 2026 09:42:26 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:26 UTC
+[exit 0]
+
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; INSERT VERTEX Person(name, age) VALUES "ada":("Ada", 36), "bram":("Bram", 29), "chen":("Chen", 41), "dara":("Dara", 33), "eli":("Eli", 27), "fatima":("Fatima", 38), "goran":("Goran", 45), "hana":("Hana", 31), "ivo":("Ivo", 24), "jun":("Jun", 39), "kira":("Kira", 30), "luis":("Luis", 35); INSERT VERTEX Company(name) VALUES "acme":("Acme"), "globex":("Globex"), "initech":("Initech"); INSERT VERTEX Project(name) VALUES "atlas":("Atlas"), "beacon":("Beacon"), "comet":("Comet"), "delta":("Delta"), "ember":("Ember"); INSERT EDGE WorksAt() VALUES "ada"->"acme":(), "bram"->"acme":(), "chen"->"acme":(), "dara"->"acme":(), "eli"->"globex":(), "fatima"->"globex":(), "goran"->"globex":(), "hana"->"globex":(), "ivo"->"initech":(), "jun"->"initech":(), "kira"->"initech":(), "luis"->"initech":(); INSERT EDGE ContributesTo() VALUES "ada"->"atlas":(), "ada"->"beacon":(), "bram"->"atlas":(), "chen"->"comet":(), "dara"->"beacon":(), "eli"->"delta":(), "fatima"->"delta":(), "goran"->"ember":(), "hana"->"comet":(), "ivo"->"ember":(), "jun"->"delta":(), "kira"->"atlas":(), "luis"->"ember":();'
+(root@nebula) [(none)]> USE cmp; INSERT VERTEX Person(name, age) VALUES "ada":("Ada", 36), "bram":("Bram", 29), "chen":("Chen", 41), "dara":("Dara", 33), "eli":("Eli", 27), "fatima":("Fatima", 38), "goran":("Goran", 45), "hana":("Hana", 31), "ivo":("Ivo", 24), "jun":("Jun", 39), "kira":("Kira", 30), "luis":("Luis", 35); INSERT VERTEX Company(name) VALUES "acme":("Acme"), "globex":("Globex"), "initech":("Initech"); INSERT VERTEX Project(name) VALUES "atlas":("Atlas"), "beacon":("Beacon"), "comet":("Comet"), "delta":("Delta"), "ember":("Ember"); INSERT EDGE WorksAt() VALUES "ada"->"acme":(), "bram"->"acme":(), "chen"->"acme":(), "dara"->"acme":(), "eli"->"globex":(), "fatima"->"globex":(), "goran"->"globex":(), "hana"->"globex":(), "ivo"->"initech":(), "jun"->"initech":(), "kira"->"initech":(), "luis"->"initech":(); INSERT EDGE ContributesTo() VALUES "ada"->"atlas":(), "ada"->"beacon":(), "bram"->"atlas":(), "chen"->"comet":(), "dara"->"beacon":(), "eli"->"delta":(), "fatima"->"delta":(), "goran"->"ember":(), "hana"->"comet":(), "ivo"->"ember":(), "jun"->"delta":(), "kira"->"atlas":(), "luis"->"ember":();
+Execution succeeded (time spent 10.01222s/10.012781729s)
+
+Wed, 11 Nov 2026 09:42:36 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:36 UTC
+[exit 0]
+
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; MATCH (p:Person) RETURN count(p) AS people;'
+(root@nebula) [(none)]> USE cmp; MATCH (p:Person) RETURN count(p) AS people;
++--------+
+| people |
++--------+
+| 12     |
++--------+
+Got 1 rows (time spent 2.94ms/3.125417ms)
+
+Wed, 11 Nov 2026 09:42:36 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:36 UTC
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+USE cmp;
+MATCH (c:Company)<-[:WorksAt]-(p:Person)-[:ContributesTo]->(j:Project)
+WHERE id(c) == "acme"
+RETURN DISTINCT j.Project.name AS project
+ORDER BY project;
+
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; MATCH (c:Company)<-[:WorksAt]-(p:Person)-[:ContributesTo]->(j:Project) WHERE id(c) == "acme" RETURN DISTINCT j.Project.name AS project ORDER BY project;'
+(root@nebula) [(none)]> USE cmp; MATCH (c:Company)<-[:WorksAt]-(p:Person)-[:ContributesTo]->(j:Project) WHERE id(c) == "acme" RETURN DISTINCT j.Project.name AS project ORDER BY project;
++----------+
+| project  |
++----------+
+| "Atlas"  |
+| "Beacon" |
+| "Comet"  |
++----------+
+Got 3 rows (time spent 10.009492s/10.009719438s)
+
+Wed, 11 Nov 2026 09:42:46 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:46 UTC
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# age is a string
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; INSERT VERTEX Person(name, age) VALUES "mo":("Mo", "forty");'
+(root@nebula) [(none)]> USE cmp; INSERT VERTEX Person(name, age) VALUES "mo":("Mo", "forty");
+[ERROR (-1005)]: Storage Error: The data type does not meet the requirements. Use the correct type of data.
+
+Wed, 11 Nov 2026 09:42:46 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:46 UTC
+[exit 0]
+
+=> rejects_wrong_type: rejected ([ERROR (-1005)]: Storage Error: The data type does not meet the requirements. Use the correct type of data.)
+# nickname isn't in the schema
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; INSERT VERTEX Person(name, age, nickname) VALUES "nia":("Nia", 28, "N");'
+(root@nebula) [(none)]> USE cmp; INSERT VERTEX Person(name, age, nickname) VALUES "nia":("Nia", 28, "N");
+[ERROR (-1009)]: SemanticError: Unknown column `nickname' in schema
+
+Wed, 11 Nov 2026 09:42:46 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:46 UTC
+[exit 0]
+
+=> rejects_undeclared_property: rejected ([ERROR (-1009)]: SemanticError: Unknown column `nickname' in schema)
+USE cmp;
+MATCH (p:Person) RETURN count(p) AS people;
+
+$ docker exec cmp-nebulagraph-console-1 nebula-console -addr graphd -port 9669 -u root -p nebula -e 'USE cmp; MATCH (p:Person) RETURN count(p) AS people;'
+(root@nebula) [(none)]> USE cmp; MATCH (p:Person) RETURN count(p) AS people;
++--------+
+| people |
++--------+
+| 12     |
++--------+
+Got 1 rows (time spent 1.284ms/1.408375ms)
+
+Wed, 11 Nov 2026 09:42:46 UTC
+
+
+
+Bye root!
+Wed, 11 Nov 2026 09:42:46 UTC
+[exit 0]
+
+=> people_after_probes: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: the NebulaGraph profile rates branching 'no' and time_travel 'partial' (snapshots and BR backups restored, not queried).
+=> branch_isolation: not available (profile: branching = no (None found))
+=> merge: not available (profile: branching = no (None found))
+=> historical_read: not available (profile: time_travel = partial (snapshots and BR backups restored, not queried))
+$ TZ=UTC docker compose -p cmp-nebulagraph --project-directory $WORK -f $CODE/compare/nebulagraph/docker-compose-lite.yaml -f $CODE/compare/nebulagraph/compose.override.yaml down -v
+time="2026-11-11T09:42:46Z" level=warning msg="$CODE/compare/nebulagraph/docker-compose-lite.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container cmp-nebulagraph-console-1 Stopping 
+ Container cmp-nebulagraph-console-1 Stopped 
+ Container cmp-nebulagraph-console-1 Removing 
+ Container cmp-nebulagraph-console-1 Removed 
+ Container cmp-nebulagraph-graphd-1 Stopping 
+ Container cmp-nebulagraph-graphd-1 Stopped 
+ Container cmp-nebulagraph-graphd-1 Removing 
+ Container cmp-nebulagraph-graphd-1 Removed 
+ Container cmp-nebulagraph-storaged0-1 Stopping 
+ Container cmp-nebulagraph-storaged0-1 Stopped 
+ Container cmp-nebulagraph-storaged0-1 Removing 
+ Container cmp-nebulagraph-storaged0-1 Removed 
+ Container cmp-nebulagraph-metad0-1 Stopping 
+ Container cmp-nebulagraph-metad0-1 Stopped 
+ Container cmp-nebulagraph-metad0-1 Removing 
+ Container cmp-nebulagraph-metad0-1 Removed 
+ Network cmp-nebulagraph_nebula-net Removing 
+ Network cmp-nebulagraph_nebula-net Removed
+[exit 0]
+

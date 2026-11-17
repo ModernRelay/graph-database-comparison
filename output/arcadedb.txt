@@ -1,0 +1,151 @@
+# arcadedb 26.11.1 (docker image arcadedata/arcadedb:26.11.1)
+# run 2026-11-11 09:39 UTC
+
+$ docker run -d --name cmp-arcadedb -p 17001:2480 -e JAVA_OPTS=-Darcadedb.server.rootPassword=compare-pass arcadedata/arcadedb:26.11.1
+07c84888097f1b70a6c0be5fa74876036c271616973423f905a3f52a307f4913
+[exit 0]
+
+$ curl -s -u root:compare-pass 'http://localhost:17001/api/v1/server?mode=basic'
+{"user":"root","version":"26.11.1 (build a3a5d124572608412aa187f9c4b290e071699473/1793826579842/main)","serverName":"ArcadeDB_0","languages":["java","sql","sqlscript","opencypher","mongo","graphql","redis","cypher","gremlin","js"],"instanceId":"adb-ec6bffda-f70c-41a0-a93d-39b28565a302"}
+[exit 0]
+
+
+## 1. Schema and load
+
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/server -d '{"command": "create database compare"}'
+{"result":"ok"}
+[exit 0]
+
+CREATE VERTEX TYPE Person;
+CREATE PROPERTY Person.slug STRING;
+CREATE PROPERTY Person.name STRING;
+CREATE PROPERTY Person.age INTEGER;
+CREATE INDEX ON Person (slug) UNIQUE;
+CREATE VERTEX TYPE Company;
+CREATE PROPERTY Company.slug STRING;
+CREATE PROPERTY Company.name STRING;
+CREATE INDEX ON Company (slug) UNIQUE;
+CREATE VERTEX TYPE Project;
+CREATE PROPERTY Project.slug STRING;
+CREATE PROPERTY Project.name STRING;
+CREATE INDEX ON Project (slug) UNIQUE;
+CREATE EDGE TYPE WorksAt;
+CREATE PROPERTY WorksAt.`@out` LINK OF Person;
+CREATE PROPERTY WorksAt.`@in` LINK OF Company;
+CREATE EDGE TYPE ContributesTo;
+CREATE PROPERTY ContributesTo.`@out` LINK OF Person;
+CREATE PROPERTY ContributesTo.`@in` LINK OF Project;
+
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"operation":"create property","typeName":"ContributesTo","propertyName":"@in","of":"Project","created":true}],"limit":20000,"returned":1,"truncated":false}
+[exit 0]
+
+INSERT INTO Person SET slug = "ada", name = "Ada", age = 36;
+INSERT INTO Person SET slug = "bram", name = "Bram", age = 29;
+INSERT INTO Person SET slug = "chen", name = "Chen", age = 41;
+INSERT INTO Person SET slug = "dara", name = "Dara", age = 33;
+INSERT INTO Person SET slug = "eli", name = "Eli", age = 27;
+INSERT INTO Person SET slug = "fatima", name = "Fatima", age = 38;
+INSERT INTO Person SET slug = "goran", name = "Goran", age = 45;
+INSERT INTO Person SET slug = "hana", name = "Hana", age = 31;
+INSERT INTO Person SET slug = "ivo", name = "Ivo", age = 24;
+INSERT INTO Person SET slug = "jun", name = "Jun", age = 39;
+INSERT INTO Person SET slug = "kira", name = "Kira", age = 30;
+INSERT INTO Person SET slug = "luis", name = "Luis", age = 35;
+INSERT INTO Company SET slug = "acme", name = "Acme";
+INSERT INTO Company SET slug = "globex", name = "Globex";
+INSERT INTO Company SET slug = "initech", name = "Initech";
+INSERT INTO Project SET slug = "atlas", name = "Atlas";
+INSERT INTO Project SET slug = "beacon", name = "Beacon";
+INSERT INTO Project SET slug = "comet", name = "Comet";
+INSERT INTO Project SET slug = "delta", name = "Delta";
+INSERT INTO Project SET slug = "ember", name = "Ember";
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "ada") TO (SELECT FROM Company WHERE slug = "acme");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "bram") TO (SELECT FROM Company WHERE slug = "acme");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "chen") TO (SELECT FROM Company WHERE slug = "acme");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "dara") TO (SELECT FROM Company WHERE slug = "acme");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "eli") TO (SELECT FROM Company WHERE slug = "globex");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "fatima") TO (SELECT FROM Company WHERE slug = "globex");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "goran") TO (SELECT FROM Company WHERE slug = "globex");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "hana") TO (SELECT FROM Company WHERE slug = "globex");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "ivo") TO (SELECT FROM Company WHERE slug = "initech");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "jun") TO (SELECT FROM Company WHERE slug = "initech");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "kira") TO (SELECT FROM Company WHERE slug = "initech");
+CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "luis") TO (SELECT FROM Company WHERE slug = "initech");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "ada") TO (SELECT FROM Project WHERE slug = "atlas");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "ada") TO (SELECT FROM Project WHERE slug = "beacon");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "bram") TO (SELECT FROM Project WHERE slug = "atlas");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "chen") TO (SELECT FROM Project WHERE slug = "comet");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "dara") TO (SELECT FROM Project WHERE slug = "beacon");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "eli") TO (SELECT FROM Project WHERE slug = "delta");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "fatima") TO (SELECT FROM Project WHERE slug = "delta");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "goran") TO (SELECT FROM Project WHERE slug = "ember");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "hana") TO (SELECT FROM Project WHERE slug = "comet");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "ivo") TO (SELECT FROM Project WHERE slug = "ember");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "jun") TO (SELECT FROM Project WHERE slug = "delta");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "kira") TO (SELECT FROM Project WHERE slug = "atlas");
+CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "luis") TO (SELECT FROM Project WHERE slug = "ember");
+
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"@rid":"#14:12","@type":"ContributesTo","@cat":"e","@in":"#9:4","@out":"#1:11"}],"limit":20000,"returned":1,"truncated":false}
+[exit 0]
+
+# openCypher: MATCH (n) RETURN labels(n)[0] AS type, count(*) AS n ORDER BY type
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"type":"Company","n":3},{"type":"Person","n":12},{"type":"Project","n":5}],"limit":20000,"returned":3,"truncated":false}
+[exit 0]
+
+# openCypher: MATCH ()-[e]->() RETURN type(e) AS type, count(*) AS n ORDER BY type
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"type":"ContributesTo","n":13},{"type":"WorksAt","n":12}],"limit":20000,"returned":2,"truncated":false}
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+MATCH {type: Company, as: c, where: (slug = :company)}.in('WorksAt'){as: p}.out('ContributesTo'){as: j}
+RETURN DISTINCT j.name AS project
+ORDER BY project
+
+# params: {"company": "acme"}
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"project":"Atlas"},{"project":"Beacon"},{"project":"Comet"}],"limit":20000,"returned":3,"truncated":false}
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Default setup: the schema from step 1 (every property declared and typed, i.e. schema-full).
+# age is a string: INSERT INTO Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"error":"Cannot execute command","requestId":"86780d5dce7a1b0a-9","exception":"java.lang.IllegalArgumentException","detail":"Cannot convert type 'class java.lang.String' to 'INTEGER' found in property 'age' -> For input string: \"forty\""}
+[exit 22]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema: INSERT INTO Person CONTENT {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"@rid":"#1:12","@type":"Person","@cat":"v","name":"Nia","nickname":"N","slug":"nia","age":28}],"limit":20000,"returned":1,"truncated":false}
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+# SELECT count(*) AS people FROM Person
+$ curl -s --fail-with-body -u root:compare-pass -X POST -H 'Content-Type: application/json' http://localhost:17001/api/v1/command/compare -d @-
+{"user":"root","result":[{"people":13}],"limit":20000,"returned":1,"truncated":false}
+[exit 0]
+
+=> people_after_probes: 13 (12 means neither probe wrote)
+
+# Stricter mode: the docs (concepts/schema) list schema-less, schema-full and hybrid operation and say
+# 'undeclared properties are accepted as long as no declared constraint is violated'. Step 1 is already
+# schema-full, and no documented type setting rejects undeclared properties, so there is no second run.
+=> rejects_wrong_type_strict: not available (no stricter mode documented; step 1 already declares every property (schema-full))
+=> rejects_undeclared_property_strict: not available (no stricter mode documented; step 1 already declares every property (schema-full))
+=> people_after_probes_strict: not available (no stricter mode documented; step 1 already declares every property (schema-full))
+
+## 4. Branch, merge and a historical read
+
+# Not run: the ArcadeDB profile rates branching and time travel below yes, and branches are not emulated.
+=> branch_isolation: not available (profile: branching = no (none found in docs))
+=> merge: not available (profile: branching = no)
+=> historical_read: not available (profile: time_travel = partial (online full backups you restore, not query))

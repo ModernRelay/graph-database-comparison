@@ -1,0 +1,8 @@
+match
+  $c isa company, has slug "acme";
+  works-at (employee: $p, employer: $c);
+  contributes-to (contributor: $p, project: $j);
+  $j has name $project;
+select $project;
+distinct;
+sort $project;

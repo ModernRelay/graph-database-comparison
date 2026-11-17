@@ -1,0 +1,93 @@
+# ladybugdb 0.22.3 (Python package ladybug==0.22.3, embedded)
+# run 2026-11-11 09:40 UTC
+
+
+## 1. Schema and load
+
+CREATE NODE TABLE Person(slug STRING PRIMARY KEY, name STRING, age INT64);
+CREATE NODE TABLE Company(slug STRING PRIMARY KEY, name STRING);
+CREATE NODE TABLE Project(slug STRING PRIMARY KEY, name STRING);
+CREATE REL TABLE WorksAt(FROM Person TO Company);
+CREATE REL TABLE ContributesTo(FROM Person TO Project);
+
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug
+result
+Table Person has been created.
+result
+Table Company has been created.
+result
+Table Project has been created.
+result
+Table WorksAt has been created.
+result
+Table ContributesTo has been created.
+[exit 0]
+
+COPY Person FROM 'person.csv' (header=true);
+COPY Company FROM 'company.csv' (header=true);
+COPY Project FROM 'project.csv' (header=true);
+COPY WorksAt FROM 'works_at.csv' (header=true);
+COPY ContributesTo FROM 'contributes_to.csv' (header=true);
+
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug
+result                                           skipped_duplicate_pk_count  skipped_duplicate_pks
+12 tuples have been copied to the Person table.  0                           []
+result                                           skipped_duplicate_pk_count  skipped_duplicate_pks
+3 tuples have been copied to the Company table.  0                           []
+result                                           skipped_duplicate_pk_count  skipped_duplicate_pks
+5 tuples have been copied to the Project table.  0                           []
+result
+12 tuples have been copied to the WorksAt table.
+result
+13 tuples have been copied to the ContributesTo table.
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+MATCH (c:Company {slug: 'acme'})<-[:WorksAt]-(p:Person)-[:ContributesTo]->(j:Project)
+RETURN DISTINCT j.name AS project
+ORDER BY project;
+
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug
+project
+Atlas
+Beacon
+Comet
+[exit 0]
+
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug --json
+[{"project": "Atlas"}, {"project": "Beacon"}, {"project": "Comet"}]
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Node tables are strictly typed by default (CREATE GRAPH ... ANY opts out), so the default run is the strict one.
+# age is a string: CREATE (:Person {slug: 'mo', name: 'Mo', age: 'forty'});
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug
+Error: Conversion exception: Cast failed. Could not convert "forty" to INT64.
+[exit 1]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema: CREATE (:Person {slug: 'nia', name: 'Nia', age: 28, nickname: 'N'});
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug
+Error: Binder exception: Cannot find property nickname for .
+[exit 1]
+
+=> rejects_undeclared_property: rejected
+MATCH (p:Person) RETURN count(p) AS people;
+
+$ uv run --quiet --with ladybug==0.22.3 python $CODE/compare/ladybugdb/lbug.py $WORK/graph.lbug --json
+[{"people": 12}]
+[exit 0]
+
+=> people_after_probes: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: LadybugDB has no branches or versioned reads. Not emulated.
+=> branch_isolation: not available (profile: branching = no (None in docs); time_travel = no (No versioned reads; EXPORT DATABASE dumps only))
+=> merge: not available (profile: branching = no (None in docs); time_travel = no (No versioned reads; EXPORT DATABASE dumps only))
+=> historical_read: not available (profile: branching = no (None in docs); time_travel = no (No versioned reads; EXPORT DATABASE dumps only))

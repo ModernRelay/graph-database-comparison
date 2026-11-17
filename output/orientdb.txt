@@ -1,0 +1,465 @@
+# orientdb Community Edition 3.2.58 (docker image orientdb:3.2.58)
+# run 2026-11-11 09:43 UTC
+
+$ docker run -d --name cmp-orientdb -e ORIENTDB_ROOT_PASSWORD=compare-pass orientdb:3.2.58
+29fc0d7989cf2acd9736cd2a50a44c54f18013546e18422770d2e1e4d153e238
+[exit 0]
+
+
+## 1. Schema and load
+
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost root compare-pass; CREATE DATABASE remote:localhost/compare root compare-pass plocal'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.OK
+Creating database [remote:localhost/compare] using the storage type [PLOCAL]...
+Database created successfully.
+
+Current database is: remote:localhost/compare
+[exit 0]
+
+CREATE CLASS Person EXTENDS V;
+CREATE PROPERTY Person.slug STRING;
+CREATE PROPERTY Person.name STRING;
+CREATE PROPERTY Person.age INTEGER;
+CREATE INDEX Person.slug UNIQUE;
+CREATE CLASS Company EXTENDS V;
+CREATE PROPERTY Company.slug STRING;
+CREATE PROPERTY Company.name STRING;
+CREATE INDEX Company.slug UNIQUE;
+CREATE CLASS Project EXTENDS V;
+CREATE PROPERTY Project.slug STRING;
+CREATE PROPERTY Project.name STRING;
+CREATE INDEX Project.slug UNIQUE;
+CREATE CLASS WorksAt EXTENDS E;
+CREATE PROPERTY WorksAt.out LINK Person;
+CREATE PROPERTY WorksAt.in LINK Company;
+CREATE CLASS ContributesTo EXTENDS E;
+CREATE PROPERTY ContributesTo.out LINK Person;
+CREATE PROPERTY ContributesTo.in LINK Project;
+
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; CREATE CLASS Person EXTENDS V; CREATE PROPERTY Person.slug STRING; CREATE PROPERTY Person.name STRING; CREATE PROPERTY Person.age INTEGER; CREATE INDEX Person.slug UNIQUE; CREATE CLASS Company EXTENDS V; CREATE PROPERTY Company.slug STRING; CREATE PROPERTY Company.name STRING; CREATE INDEX Company.slug UNIQUE; CREATE CLASS Project EXTENDS V; CREATE PROPERTY Project.slug STRING; CREATE PROPERTY Project.name STRING; CREATE INDEX Project.slug UNIQUE; CREATE CLASS WorksAt EXTENDS E; CREATE PROPERTY WorksAt.out LINK Person; CREATE PROPERTY WorksAt.in LINK Company; CREATE CLASS ContributesTo EXTENDS E; CREATE PROPERTY ContributesTo.out LINK Person; CREATE PROPERTY ContributesTo.in LINK Project'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+Class created successfully.
+
+Property created successfully.
+
+Property created successfully.
+
+Property created successfully.
+
+
+Creating index...
+Created index successfully in 0.015000 sec(s).
+
+
+Index created successfully
+Class created successfully.
+
+Property created successfully.
+
+Property created successfully.
+
+
+Creating index...
+Created index successfully in 0.024000 sec(s).
+
+
+Index created successfully
+Class created successfully.
+
+Property created successfully.
+
+Property created successfully.
+
+
+Creating index...
+Created index successfully in 0.054000 sec(s).
+
+
+Index created successfully
+Class created successfully.
+
+Property created successfully.
+
+Property created successfully.
+
+Class created successfully.
+
+Property created successfully.
+
+Property created successfully.
+[exit 0]
+
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; CREATE VERTEX Person SET slug = "ada", name = "Ada", age = 36; CREATE VERTEX Person SET slug = "bram", name = "Bram", age = 29; CREATE VERTEX Person SET slug = "chen", name = "Chen", age = 41; CREATE VERTEX Person SET slug = "dara", name = "Dara", age = 33; CREATE VERTEX Person SET slug = "eli", name = "Eli", age = 27; CREATE VERTEX Person SET slug = "fatima", name = "Fatima", age = 38; CREATE VERTEX Person SET slug = "goran", name = "Goran", age = 45; CREATE VERTEX Person SET slug = "hana", name = "Hana", age = 31; CREATE VERTEX Person SET slug = "ivo", name = "Ivo", age = 24; CREATE VERTEX Person SET slug = "jun", name = "Jun", age = 39; CREATE VERTEX Person SET slug = "kira", name = "Kira", age = 30; CREATE VERTEX Person SET slug = "luis", name = "Luis", age = 35; CREATE VERTEX Company SET slug = "acme", name = "Acme"; CREATE VERTEX Company SET slug = "globex", name = "Globex"; CREATE VERTEX Company SET slug = "initech", name = "Initech"; CREATE VERTEX Project SET slug = "atlas", name = "Atlas"; CREATE VERTEX Project SET slug = "beacon", name = "Beacon"; CREATE VERTEX Project SET slug = "comet", name = "Comet"; CREATE VERTEX Project SET slug = "delta", name = "Delta"; CREATE VERTEX Project SET slug = "ember", name = "Ember"; CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "ada") TO (SELECT FROM Company WHERE slug = "acme"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "bram") TO (SELECT FROM Company WHERE slug = "acme"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "chen") TO (SELECT FROM Company WHERE slug = "acme"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "dara") TO (SELECT FROM Company WHERE slug = "acme"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "eli") TO (SELECT FROM Company WHERE slug = "globex"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "fatima") TO (SELECT FROM Company WHERE slug = "globex"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "goran") TO (SELECT FROM Company WHERE slug = "globex"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "hana") TO (SELECT FROM Company WHERE slug = "globex"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "ivo") TO (SELECT FROM Company WHERE slug = "initech"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "jun") TO (SELECT FROM Company WHERE slug = "initech"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "kira") TO (SELECT FROM Company WHERE slug = "initech"); CREATE EDGE WorksAt FROM (SELECT FROM Person WHERE slug = "luis") TO (SELECT FROM Company WHERE slug = "initech"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "ada") TO (SELECT FROM Project WHERE slug = "atlas"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "ada") TO (SELECT FROM Project WHERE slug = "beacon"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "bram") TO (SELECT FROM Project WHERE slug = "atlas"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "chen") TO (SELECT FROM Project WHERE slug = "comet"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "dara") TO (SELECT FROM Project WHERE slug = "beacon"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "eli") TO (SELECT FROM Project WHERE slug = "delta"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "fatima") TO (SELECT FROM Project WHERE slug = "delta"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "goran") TO (SELECT FROM Project WHERE slug = "ember"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "hana") TO (SELECT FROM Project WHERE slug = "comet"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "ivo") TO (SELECT FROM Project WHERE slug = "ember"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "jun") TO (SELECT FROM Project WHERE slug = "delta"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "kira") TO (SELECT FROM Project WHERE slug = "atlas"); CREATE EDGE ContributesTo FROM (SELECT FROM Person WHERE slug = "luis") TO (SELECT FROM Project WHERE slug = "ember")'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+Created vertex '[Person#46:0{slug:ada,name:Ada,age:36} v1]' in 0.003000 sec(s).
+
+Created vertex '[Person#47:0{slug:bram,name:Bram,age:29} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#48:0{slug:chen,name:Chen,age:41} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#49:0{slug:dara,name:Dara,age:33} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#50:0{slug:eli,name:Eli,age:27} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#51:0{slug:fatima,name:Fatima,age:38} v1]' in 0.000000 sec(s).
+
+Created vertex '[Person#52:0{slug:goran,name:Goran,age:45} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#53:0{slug:hana,name:Hana,age:31} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#54:0{slug:ivo,name:Ivo,age:24} v1]' in 0.000000 sec(s).
+
+Created vertex '[Person#55:0{slug:jun,name:Jun,age:39} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#56:0{slug:kira,name:Kira,age:30} v1]' in 0.001000 sec(s).
+
+Created vertex '[Person#57:0{slug:luis,name:Luis,age:35} v1]' in 0.001000 sec(s).
+
+Created vertex '[Company#64:0{slug:acme,name:Acme} v1]' in 0.002000 sec(s).
+
+Created vertex '[Company#65:0{slug:globex,name:Globex} v1]' in 0.001000 sec(s).
+
+Created vertex '[Company#66:0{slug:initech,name:Initech} v1]' in 0.001000 sec(s).
+
+Created vertex '[Project#82:0{slug:atlas,name:Atlas} v1]' in 0.000000 sec(s).
+
+Created vertex '[Project#83:0{slug:beacon,name:Beacon} v1]' in 0.001000 sec(s).
+
+Created vertex '[Project#84:0{slug:comet,name:Comet} v1]' in 0.001000 sec(s).
+
+Created vertex '[Project#85:0{slug:delta,name:Delta} v1]' in 0.001000 sec(s).
+
+Created vertex '[Project#86:0{slug:ember,name:Ember} v1]' in 0.000000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#100:0|WorksAt|#46:0|#64:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.007000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#101:0|WorksAt|#47:0|#64:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#102:0|WorksAt|#48:0|#64:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.002000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#103:0|WorksAt|#49:0|#64:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#104:0|WorksAt|#50:0|#65:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#105:0|WorksAt|#51:0|#65:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#106:0|WorksAt|#52:0|#65:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#107:0|WorksAt|#53:0|#65:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.002000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#108:0|WorksAt|#54:0|#66:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#109:0|WorksAt|#55:0|#66:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#110:0|WorksAt|#56:0|#66:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------+-----+-----+
+|#   |@RID  |@CLASS |out  |in   |
++----+------+-------+-----+-----+
+|0   |#111:0|WorksAt|#57:0|#66:0|
++----+------+-------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#118:0|ContributesTo|#46:0|#82:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.002000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#119:0|ContributesTo|#46:0|#83:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#120:0|ContributesTo|#47:0|#82:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.002000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#121:0|ContributesTo|#48:0|#84:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#122:0|ContributesTo|#49:0|#83:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#123:0|ContributesTo|#50:0|#85:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#124:0|ContributesTo|#51:0|#85:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.002000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#125:0|ContributesTo|#52:0|#86:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#126:0|ContributesTo|#53:0|#84:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.002000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#127:0|ContributesTo|#54:0|#86:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#128:0|ContributesTo|#55:0|#85:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#129:0|ContributesTo|#56:0|#82:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+
++----+------+-------------+-----+-----+
+|#   |@RID  |@CLASS       |out  |in   |
++----+------+-------------+-----+-----+
+|0   |#130:0|ContributesTo|#57:0|#86:0|
++----+------+-------------+-----+-----+
+Created '1' edges in 0.001000 sec(s).
+[exit 0]
+
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; SELECT @class AS type, count(*) AS n FROM V GROUP BY @class ORDER BY type; SELECT @class AS type, count(*) AS n FROM E GROUP BY @class ORDER BY type'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
++----+-------+----+
+|#   |type   |n   |
++----+-------+----+
+|0   |Company|3   |
+|1   |Person |12  |
+|2   |Project|5   |
++----+-------+----+
+
+3 item(s) found. Query executed in 0.028 sec(s).
++----+-------------+----+
+|#   |type         |n   |
++----+-------------+----+
+|0   |ContributesTo|13  |
+|1   |WorksAt      |12  |
++----+-------------+----+
+
+2 item(s) found. Query executed in 0.001 sec(s).
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+MATCH {class: Company, as: c, where: (slug = 'acme')}.in('WorksAt'){as: p}.out('ContributesTo'){as: j}
+RETURN DISTINCT j.name AS project
+ORDER BY project;
+
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; MATCH {class: Company, as: c, where: (slug = '"'"'acme'"'"')}.in('"'"'WorksAt'"'"'){as: p}.out('"'"'ContributesTo'"'"'){as: j} RETURN DISTINCT j.name AS project ORDER BY project'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
++----+-------+
+|#   |project|
++----+-------+
+|0   |Atlas  |
+|1   |Beacon |
+|2   |Comet  |
++----+-------+
+
+3 item(s) found. Query executed in 0.009 sec(s).
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# Default setup: the schema from step 1 (typed properties, class not strict: OrientDB's hybrid mode).
+# age is a string: CREATE VERTEX Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; CREATE VERTEX Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+
+!ERROR: Error on executing command: create VERTEX Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}	DB name="compare"
+-> For input string: "forty"
+[exit 1]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema: CREATE VERTEX Person CONTENT {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; CREATE VERTEX Person CONTENT {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+Created vertex '[Person#58:0{slug:nia,name:Nia,age:28,nickname:N} v1]' in 0.002000 sec(s).
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; SELECT count(*) AS people FROM Person'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
++----+------+
+|#   |people|
++----+------+
+|0   |13    |
++----+------+
+
+1 item(s) found. Query executed in 0.003 sec(s).
+[exit 0]
+
+=> people_after_probes: 13 (12 means neither probe wrote)
+
+# Stricter mode: class STRICTMODE (schema-full). Remove whatever the first run wrote, then probe again.
+ALTER CLASS Person STRICTMODE TRUE;
+
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; DELETE VERTEX Person WHERE slug IN ['"'"'mo'"'"', '"'"'nia'"'"']; ALTER CLASS Person STRICTMODE TRUE'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+Delete record(s) '[{count:1}]' in 0.005000 sec(s).
+
+Class updated successfully.
+[exit 0]
+
+# age is a string: CREATE VERTEX Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; CREATE VERTEX Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+
+!ERROR: Error on executing command: create VERTEX Person CONTENT {"slug": "mo", "name": "Mo", "age": "forty"}	DB name="compare"
+-> For input string: "forty"
+[exit 1]
+
+=> rejects_wrong_type_strict: rejected
+# nickname isn't in the schema: CREATE VERTEX Person CONTENT {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; CREATE VERTEX Person CONTENT {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"}'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
+
+!ERROR: Found additional field 'nickname'. It cannot be added because the schema class 'Person' is defined as STRICT	DB name="compare"	Error Code="4"	DB name="compare"	Error Code="4"
+[exit 1]
+
+=> rejects_undeclared_property_strict: rejected
+$ docker exec cmp-orientdb /orientdb/bin/console.sh 'CONNECT remote:localhost/compare root compare-pass; SELECT count(*) AS people FROM Person'
+
+OrientDB console v.3.2.58 (build 8176b027e394c30f87c348bb3917f4133c1f9597, branch UNKNOWN) https://www.orientdb.com
+Type 'help' to display all the supported commands.
+Connecting to database [remote:localhost/compare] with user 'root'...OK
++----+------+
+|#   |people|
++----+------+
+|0   |12    |
++----+------+
+
+1 item(s) found. Query executed in 0.001 sec(s).
+[exit 0]
+
+=> people_after_probes_strict: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: the OrientDB profile rates branching and time travel below yes, and branches are not emulated.
+=> branch_isolation: not available (profile: branching = no (no branches of the data))
+=> merge: not available (profile: branching = no)
+=> historical_read: not available (profile: time_travel = partial (full and incremental backups; restore, not query))

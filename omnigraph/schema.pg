@@ -1,0 +1,18 @@
+node Person {
+  slug: String @key
+  name: String
+  age: I32
+}
+
+node Company {
+  slug: String @key
+  name: String
+}
+
+node Project {
+  slug: String @key
+  name: String
+}
+
+edge WorksAt: Person -> Company
+edge ContributesTo: Person -> Project

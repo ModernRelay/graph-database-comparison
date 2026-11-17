@@ -1,0 +1,5 @@
+USE cmp;
+MATCH (c:Company)<-[:WorksAt]-(p:Person)-[:ContributesTo]->(j:Project)
+WHERE id(c) == "acme"
+RETURN DISTINCT j.Project.name AS project
+ORDER BY project;

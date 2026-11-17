@@ -1,0 +1,23 @@
+slug: string @index(exact) @upsert .
+name: string .
+age: int .
+works_at: uid @reverse .
+contributes_to: [uid] .
+
+type Person {
+  slug
+  name
+  age
+  works_at
+  contributes_to
+}
+
+type Company {
+  slug
+  name
+}
+
+type Project {
+  slug
+  name
+}

@@ -1,0 +1,30 @@
+{
+  "two_hop_query": {
+    "value": "pass",
+    "detail": "got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet']"
+  },
+  "rejects_wrong_type": {
+    "value": "rejected",
+    "detail": ""
+  },
+  "rejects_undeclared_property": {
+    "value": "rejected",
+    "detail": ""
+  },
+  "people_after_probes": {
+    "value": 12,
+    "detail": "12 means neither probe wrote"
+  },
+  "branch_isolation": {
+    "value": "not available",
+    "detail": "profile: branching = no (No branches of the data); time_travel = partial (No versioned reads; backups are DIY via export and import in CE)"
+  },
+  "merge": {
+    "value": "not available",
+    "detail": "profile: branching = no (No branches of the data); time_travel = partial (No versioned reads; backups are DIY via export and import in CE)"
+  },
+  "historical_read": {
+    "value": "not available",
+    "detail": "profile: branching = no (No branches of the data); time_travel = partial (No versioned reads; backups are DIY via export and import in CE)"
+  }
+}

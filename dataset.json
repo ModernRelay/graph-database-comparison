@@ -1,0 +1,44 @@
+{
+  "_about": "The one dataset every engine loads. The query everywhere: which projects do Acme's employees contribute to? Expected answer in expected.json (computed by common.py).",
+  "people": [
+    {"slug": "ada", "name": "Ada", "age": 36},
+    {"slug": "bram", "name": "Bram", "age": 29},
+    {"slug": "chen", "name": "Chen", "age": 41},
+    {"slug": "dara", "name": "Dara", "age": 33},
+    {"slug": "eli", "name": "Eli", "age": 27},
+    {"slug": "fatima", "name": "Fatima", "age": 38},
+    {"slug": "goran", "name": "Goran", "age": 45},
+    {"slug": "hana", "name": "Hana", "age": 31},
+    {"slug": "ivo", "name": "Ivo", "age": 24},
+    {"slug": "jun", "name": "Jun", "age": 39},
+    {"slug": "kira", "name": "Kira", "age": 30},
+    {"slug": "luis", "name": "Luis", "age": 35}
+  ],
+  "companies": [
+    {"slug": "acme", "name": "Acme"},
+    {"slug": "globex", "name": "Globex"},
+    {"slug": "initech", "name": "Initech"}
+  ],
+  "projects": [
+    {"slug": "atlas", "name": "Atlas"},
+    {"slug": "beacon", "name": "Beacon"},
+    {"slug": "comet", "name": "Comet"},
+    {"slug": "delta", "name": "Delta"},
+    {"slug": "ember", "name": "Ember"}
+  ],
+  "works_at": [
+    ["ada", "acme"], ["bram", "acme"], ["chen", "acme"], ["dara", "acme"],
+    ["eli", "globex"], ["fatima", "globex"], ["goran", "globex"], ["hana", "globex"],
+    ["ivo", "initech"], ["jun", "initech"], ["kira", "initech"], ["luis", "initech"]
+  ],
+  "contributes_to": [
+    ["ada", "atlas"], ["ada", "beacon"], ["bram", "atlas"], ["chen", "comet"],
+    ["dara", "beacon"], ["eli", "delta"], ["fatima", "delta"], ["goran", "ember"],
+    ["hana", "comet"], ["ivo", "ember"], ["jun", "delta"], ["kira", "atlas"], ["luis", "ember"]
+  ],
+  "probes": {
+    "wrong_type": {"slug": "mo", "name": "Mo", "age": "forty"},
+    "undeclared_property": {"slug": "nia", "name": "Nia", "age": 28, "nickname": "N"},
+    "branch_insert": {"slug": "omar", "name": "Omar", "age": 26}
+  }
+}

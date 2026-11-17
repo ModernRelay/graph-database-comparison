@@ -1,0 +1,93 @@
+# typedb TypeDB CE 3.14.2 (image typedb/typedb:3.14.2)
+# run 2026-11-11 09:43 UTC
+
+# Signed in as admin through POST /v1/signin; the token is in $TOKEN.
+
+## 1. Schema and load
+
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/databases/cmp -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"
+
+[exit 0]
+
+define
+  attribute slug, value string;
+  attribute name, value string;
+  attribute age, value integer;
+  entity person, owns slug @key, owns name, owns age,
+    plays works-at:employee, plays contributes-to:contributor;
+  entity company, owns slug @key, owns name, plays works-at:employer;
+  entity project, owns slug @key, owns name, plays contributes-to:project;
+  relation works-at, relates employee, relates employer;
+  relation contributes-to, relates contributor, relates project;
+
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q01.json
+{"queryType":"schema","answerType":"ok","answers":null,"query":null,"warning":null}
+[exit 0]
+
+# load query, one write transaction (45 statements); first person, first edge:
+insert
+  $ada isa person, has slug "ada", has name "Ada", has age 36;
+  works-at (employee: $ada, employer: $acme);
+  ...
+reduce $inserted_rows = count;
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q02.json
+{"queryType":"write","answerType":"conceptRows","answers":[{"data":{"inserted_rows":{"kind":"value","value":1,"valueType":"integer"}},"involvedBlocks":null}],"query":null,"warning":null}
+[exit 0]
+
+# instances per type:
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q03.json
+{"queryType":"read","answerType":"conceptRows","answers":[{"data":{"n":{"kind":"value","value":3,"valueType":"integer"},"t":{"kind":"entityType","label":"company"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":20,"valueType":"integer"},"t":{"kind":"attributeType","label":"slug","valueType":"string"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":12,"valueType":"integer"},"t":{"kind":"attributeType","label":"age","valueType":"integer"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":13,"valueType":"integer"},"t":{"kind":"relationType","label":"contributes-to"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":5,"valueType":"integer"},"t":{"kind":"entityType","label":"project"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":20,"valueType":"integer"},"t":{"kind":"attributeType","label":"name","valueType":"string"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":12,"valueType":"integer"},"t":{"kind":"entityType","label":"person"}},"involvedBlocks":null},{"data":{"n":{"kind":"value","value":12,"valueType":"integer"},"t":{"kind":"relationType","label":"works-at"}},"involvedBlocks":null}],"query":null,"warning":null}
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+match
+  $c isa company, has slug "acme";
+  works-at (employee: $p, employer: $c);
+  contributes-to (contributor: $p, project: $j);
+  $j has name $project;
+select $project;
+distinct;
+sort $project;
+
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q04.json
+{"queryType":"read","answerType":"conceptRows","answers":[{"data":{"project":{"iid":"0x2000010841746c6173000000000000000000000005","kind":"attribute","type":{"kind":"attributeType","label":"name","valueType":"string"},"value":"Atlas","valueType":"string"}},"involvedBlocks":null},{"data":{"project":{"iid":"0x20000108426561636f6e0000000000000000000006","kind":"attribute","type":{"kind":"attributeType","label":"name","valueType":"string"},"value":"Beacon","valueType":"string"}},"involvedBlocks":null},{"data":{"project":{"iid":"0x20000108436f6d6574000000000000000000000005","kind":"attribute","type":{"kind":"attributeType","label":"name","valueType":"string"},"value":"Comet","valueType":"string"}},"involvedBlocks":null}],"query":null,"warning":null}
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# TypeDB validates every write against the schema; there is no looser or stricter mode to switch.
+# age is a string:
+insert
+  $p isa person, has slug "mo", has name "Mo", has age "forty";
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q05.json
+{"code":"DVL15","message":"[DVL15] Attribute type 'age' expects values of type 'integer' but received value '\"forty\"' of type 'string'.\n[COW5] Concept write failed due to a data validation error.\n[WEX1] Write execution failed due to a concept write error.\n[PEX6] Error executing write operation.\n[QEX14] Error while execution write pipeline.\n[TSV11] Query failed.\n[HSR16] Transaction error."}curl: (22) The requested URL returned error: 400
+[exit 22]
+
+=> rejects_wrong_type: rejected
+# nickname isn't in the schema:
+insert
+  $p isa person, has slug "nia", has name "Nia", has age 28, has nickname "N";
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q06.json
+{"code":"INF2","message":"[INF2] Type label 'nickname' not found.\n[QUA1] Type inference error while compiling query annotations.\n[QEX8] Error analysing query.\nNear 2:66\n-----\n    insert\n-->   $p isa person, has slug \"nia\", has name \"Nia\", has age 28, has nickname \"N\";\n                                                                     ^\n-----\n[TSV11] Query failed.\n[HSR16] Transaction error."}curl: (22) The requested URL returned error: 400
+[exit 22]
+
+=> rejects_undeclared_property: rejected
+match $p isa person;
+reduce $people = count($p);
+
+$ curl -sS --fail-with-body -X POST http://127.0.0.1:18010/v1/query -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data-binary @q07.json
+{"queryType":"read","answerType":"conceptRows","answers":[{"data":{"people":{"kind":"value","value":12,"valueType":"integer"}},"involvedBlocks":null}],"query":null,"warning":null}
+[exit 0]
+
+=> people_after_probes: 12 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: TypeDB has no branches or versioned reads. Not emulated.
+=> branch_isolation: not available (profile: branching = no (No branches of the data); time_travel = partial (No versioned reads; backups are DIY via export and import in CE))
+=> merge: not available (profile: branching = no (No branches of the data); time_travel = partial (No versioned reads; backups are DIY via export and import in CE))
+=> historical_read: not available (profile: branching = no (No branches of the data); time_travel = partial (No versioned reads; backups are DIY via export and import in CE))

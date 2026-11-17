@@ -1,0 +1,155 @@
+# apache-age 1.8.0 on PostgreSQL 18.6 (image apache/age:release_PG18_1.8.0)
+# run 2026-11-11 09:39 UTC
+
+
+## 1. Schema and load
+
+-- AGE has no property schema. Its docs set up a graph and its labels;
+-- each label becomes a PostgreSQL table with an agtype properties column.
+LOAD 'age';
+SET search_path = ag_catalog, "$user", public;
+SELECT create_graph('cmp');
+SELECT create_vlabel('cmp', 'Person');
+SELECT create_vlabel('cmp', 'Company');
+SELECT create_vlabel('cmp', 'Project');
+SELECT create_elabel('cmp', 'WorksAt');
+SELECT create_elabel('cmp', 'ContributesTo');
+
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -f -
+ create_graph 
+--------------
+ 
+(1 row)
+
+ create_vlabel 
+---------------
+ 
+(1 row)
+
+ create_vlabel 
+---------------
+ 
+(1 row)
+
+ create_vlabel 
+---------------
+ 
+(1 row)
+
+ create_elabel 
+---------------
+ 
+(1 row)
+
+ create_elabel 
+---------------
+ 
+(1 row)
+
+psql:<stdin>:5: NOTICE:  graph "cmp" has been created
+psql:<stdin>:6: NOTICE:  VLabel "Person" has been created
+psql:<stdin>:7: NOTICE:  VLabel "Company" has been created
+psql:<stdin>:8: NOTICE:  VLabel "Project" has been created
+psql:<stdin>:9: NOTICE:  ELabel "WorksAt" has been created
+psql:<stdin>:10: NOTICE:  ELabel "ContributesTo" has been created
+[exit 0]
+
+# load.sql, 45 cypher() statements; first node and first edge:
+SELECT * FROM cypher('cmp', $$ CREATE (:Person {slug: 'ada', name: 'Ada', age: 36}) $$) AS (v agtype);
+SELECT * FROM cypher('cmp', $$ MATCH (a:Person {slug: 'ada'}), (b:Company {slug: 'acme'}) CREATE (a)-[:WorksAt]->(b) $$) AS (v agtype);
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -o /dev/null -f -
+
+[exit 0]
+
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -c 'SELECT '"'"'Person'"'"' AS label, count(*) FROM cmp."Person" UNION ALL SELECT '"'"'Company'"'"', count(*) FROM cmp."Company" UNION ALL SELECT '"'"'Project'"'"', count(*) FROM cmp."Project" UNION ALL SELECT '"'"'WorksAt'"'"', count(*) FROM cmp."WorksAt" UNION ALL SELECT '"'"'ContributesTo'"'"', count(*) FROM cmp."ContributesTo";'
+     label     | count 
+---------------+-------
+ Person        |    12
+ Company       |     3
+ Project       |     5
+ WorksAt       |    12
+ ContributesTo |    13
+(5 rows)
+[exit 0]
+
+
+## 2. Two-hop query: projects Acme's employees contribute to
+
+LOAD 'age';
+SET search_path = ag_catalog, "$user", public;
+SELECT * FROM cypher('cmp', $$
+  MATCH (c:Company {slug: 'acme'})<-[:WorksAt]-(p:Person)-[:ContributesTo]->(j:Project)
+  RETURN DISTINCT j.name AS project
+  ORDER BY project
+$$) AS (project agtype);
+
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -f -
+ project  
+----------
+ "Atlas"
+ "Beacon"
+ "Comet"
+(3 rows)
+[exit 0]
+
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -At -f -
+"Atlas"
+"Beacon"
+"Comet"
+[exit 0]
+
+=> two_hop_query: pass (got ['Atlas', 'Beacon', 'Comet'], expected ['Atlas', 'Beacon', 'Comet'])
+
+## 3. Schema probes: a wrong value type, then an undeclared property
+
+# AGE documents no schema mode for properties, so there is no strict run.
+# age is a string:
+LOAD 'age';
+SET search_path = ag_catalog, "$user", public;
+SELECT * FROM cypher('cmp', $$ CREATE (:Person {slug: 'mo', name: 'Mo', age: 'forty'}) $$) AS (v agtype);
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -f -
+ v 
+---
+(0 rows)
+[exit 0]
+
+=> rejects_wrong_type: accepted
+# nickname isn't in the schema:
+LOAD 'age';
+SET search_path = ag_catalog, "$user", public;
+SELECT * FROM cypher('cmp', $$ CREATE (:Person {slug: 'nia', name: 'Nia', age: 28, nickname: 'N'}) $$) AS (v agtype);
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -f -
+ v 
+---
+(0 rows)
+[exit 0]
+
+=> rejects_undeclared_property: accepted
+LOAD 'age';
+SET search_path = ag_catalog, "$user", public;
+SELECT * FROM cypher('cmp', $$
+  MATCH (p:Person)
+  RETURN count(p) AS people
+$$) AS (people agtype);
+
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -At -f -
+14
+[exit 0]
+
+# the probe rows as stored:
+$ docker exec -i cmp-apache-age psql -X -q -U postgres -v ON_ERROR_STOP=1 -f -
+                                                              p                                                               
+------------------------------------------------------------------------------------------------------------------------------
+ {"id": 844424930131981, "label": "Person", "properties": {"age": "forty", "name": "Mo", "slug": "mo"}}::vertex
+ {"id": 844424930131982, "label": "Person", "properties": {"age": 28, "name": "Nia", "slug": "nia", "nickname": "N"}}::vertex
+(2 rows)
+[exit 0]
+
+=> people_after_probes: 14 (12 means neither probe wrote)
+
+## 4. Branch, merge and a historical read
+
+# Not run: AGE has no branches or versioned reads. Not emulated.
+=> branch_isolation: not available (profile: branching = no (None in AGE or PostgreSQL docs); time_travel = partial (No versioned reads; PostgreSQL point-in-time recovery restores to a timestamp))
+=> merge: not available (profile: branching = no (None in AGE or PostgreSQL docs); time_travel = partial (No versioned reads; PostgreSQL point-in-time recovery restores to a timestamp))
+=> historical_read: not available (profile: branching = no (None in AGE or PostgreSQL docs); time_travel = partial (No versioned reads; PostgreSQL point-in-time recovery restores to a timestamp))

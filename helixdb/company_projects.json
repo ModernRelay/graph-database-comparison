@@ -1,0 +1,95 @@
+{
+  "request_type": "read",
+  "query_name": "company_projects",
+  "query": {
+    "read": {
+      "entries": [
+        {
+          "query": {
+            "name": "company_projects",
+            "root": {
+              "value_map": {
+                "input": {
+                  "order_by": {
+                    "input": {
+                      "dedup": {
+                        "input": {
+                          "out": {
+                            "input": {
+                              "where": {
+                                "input": {
+                                  "in": {
+                                    "input": {
+                                      "nodes_where": {
+                                        "predicate": {
+                                          "and": {
+                                            "predicates": [
+                                              {
+                                                "eq": {
+                                                  "left": {
+                                                    "property": "$label"
+                                                  },
+                                                  "right": {
+                                                    "constant": {
+                                                      "string": "Company"
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "eq": {
+                                                  "left": {
+                                                    "property": "slug"
+                                                  },
+                                                  "right": {
+                                                    "constant": {
+                                                      "string": "acme"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "label": "WORKS_AT"
+                                  }
+                                },
+                                "predicate": {
+                                  "eq": {
+                                    "left": {
+                                      "property": "$label"
+                                    },
+                                    "right": {
+                                      "constant": {
+                                        "string": "Person"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "label": "CONTRIBUTES_TO"
+                          }
+                        }
+                      }
+                    },
+                    "property": "name",
+                    "order": "asc"
+                  }
+                },
+                "properties": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "returns": [
+        "company_projects"
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+define
+  attribute slug, value string;
+  attribute name, value string;
+  attribute age, value integer;
+  entity person, owns slug @key, owns name, owns age,
+    plays works-at:employee, plays contributes-to:contributor;
+  entity company, owns slug @key, owns name, plays works-at:employer;
+  entity project, owns slug @key, owns name, plays contributes-to:project;
+  relation works-at, relates employee, relates employer;
+  relation contributes-to, relates contributor, relates project;

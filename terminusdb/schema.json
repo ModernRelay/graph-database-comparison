@@ -1,0 +1,11 @@
+[
+  {"@type": "@context", "@base": "terminusdb:///data/", "@schema": "terminusdb:///schema#"},
+  {"@type": "Class", "@id": "Company", "@key": {"@type": "Lexical", "@fields": ["slug"]},
+   "slug": "xsd:string", "name": "xsd:string"},
+  {"@type": "Class", "@id": "Project", "@key": {"@type": "Lexical", "@fields": ["slug"]},
+   "slug": "xsd:string", "name": "xsd:string"},
+  {"@type": "Class", "@id": "Person", "@key": {"@type": "Lexical", "@fields": ["slug"]},
+   "slug": "xsd:string", "name": "xsd:string", "age": "xsd:integer",
+   "works_at": {"@type": "Optional", "@class": "Company"},
+   "contributes_to": {"@type": "Set", "@class": "Project"}}
+]
